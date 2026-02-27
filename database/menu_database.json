@@ -1,0 +1,209 @@
+{
+  "piatti": [
+    {
+      "id": "animelle",
+      "nome_it": "Le animelle",
+      "ingredienti_it": "polenta, zucca e amaretto",
+      "nome_fr": "Ris de veau",
+      "ingredienti_fr": "polenta, potiron et amarante",
+      "nome_en": "Sweetbreads",
+      "ingredienti_en": "polenta, pumpkin and amaranth",
+      "categoria": "menu_esprit",
+      "prezzo_carta": 40
+    },
+    {
+      "id": "spaghettoni_martelli",
+      "nome_it": "Gli spaghettoni Martelli",
+      "ingredienti_it": "aringa, cipollotto, pecorino e caviale",
+      "nome_fr": "Spaghettoni Martelli",
+      "ingredienti_fr": "hareng, ciboule, pecorino et caviar",
+      "nome_en": "Martelli spaghettoni",
+      "ingredienti_en": "herring, spring onion, pecorino and caviar",
+      "categoria": "menu_esprit",
+      "prezzo_carta": 40
+    },
+    {
+      "id": "piccione",
+      "nome_it": "Il piccione",
+      "ingredienti_it": "coscia, petto, fegato e carote",
+      "nome_fr": "Pigeon",
+      "ingredienti_fr": "cuisse, supr\u00eame, foie et carottes",
+      "nome_en": "Pigeon",
+      "ingredienti_en": "leg, breast, liver and carrots",
+      "categoria": "menu_esprit",
+      "prezzo_carta": 58
+    },
+    {
+      "id": "carrello_formaggi",
+      "nome_it": "Il carrello dei formaggi italiani",
+      "ingredienti_it": "affinati in cantina da Roberto",
+      "nome_fr": "Chariot de fromages italiens",
+      "ingredienti_fr": "affin\u00e9s en cave par Roberto",
+      "nome_en": "Italian cheese trolley",
+      "ingredienti_en": "aged by Roberto",
+      "categoria": "menu_esprit_terroir",
+      "prezzo_carta": "da 10 a 42"
+    },
+    {
+      "id": "luna_rossa",
+      "nome_it": "Luna rossa",
+      "ingredienti_it": "mela rossa, rosa, meringa al lampone, noci pecan e rapa rossa",
+      "nome_fr": "Lune rouge",
+      "ingredienti_fr": "pomme rouge, rose, meringue \u00e0 la framboise, noix de p\u00e9can et betterave",
+      "nome_en": "Red moon",
+      "ingredienti_en": "red apple, rose, raspberry meringue, pecans and beetroot",
+      "categoria": "menu_esprit",
+      "prezzo_carta": 28
+    },
+    {
+      "id": "sedano_rapa",
+      "nome_it": "Il sedano rapa",
+      "ingredienti_it": "grano saraceno, latte, melagrana e toma",
+      "nome_fr": "C\u00e9leri-rave",
+      "ingredienti_fr": "sarrasin, lait, grenade et tomme",
+      "nome_en": "Celeriac",
+      "ingredienti_en": "buckwheat, milk, pomegranate and toma cheese",
+      "categoria": "menu_terroir",
+      "prezzo_carta": 34
+    },
+    {
+      "id": "risotto_cavolo_viola",
+      "nome_it": "Il risotto al cavolo viola",
+      "ingredienti_it": "ristretto vegetale, nocciole e yogurt di capra",
+      "nome_fr": "Risotto au chou rouge",
+      "ingredienti_fr": "jus v\u00e9g\u00e9tal, noisettes et yaourt de ch\u00e8vre",
+      "nome_en": "Risotto",
+      "ingredienti_en": "purple cabbage, vegetable reduction, hazelnuts and goat's yogurt",
+      "categoria": "menu_terroir",
+      "prezzo_carta": 38
+    },
+    {
+      "id": "zuppa_del_bosco",
+      "nome_it": "La zuppa del bosco",
+      "ingredienti_it": "funghi, Bleu d'Aoste e cirmolo",
+      "nome_fr": "Soupe des bois",
+      "ingredienti_fr": "champignons, Bleu d'Aoste et arolle",
+      "nome_en": "Forest soup",
+      "ingredienti_en": "mushrooms, Bleu d'Aoste cheese and pine",
+      "categoria": "menu_terroir",
+      "prezzo_carta": 52
+    },
+    {
+      "id": "topinambur",
+      "nome_it": "Topinambur",
+      "ingredienti_it": "castagne, cocco, carota, pepe lungo e liquirizia",
+      "nome_fr": "Topinambour",
+      "ingredienti_fr": "ch\u00e2taignes, coco, carotte, poivre long et r\u00e9glisse",
+      "nome_en": "Jerusalem artichoke",
+      "ingredienti_en": "chestnuts, coconut, carrot, long pepper and liquorice",
+      "categoria": "menu_terroir",
+      "prezzo_carta": 28
+    },
+    {
+      "id": "salmerino",
+      "nome_it": "Il salmerino di Lillaz",
+      "ingredienti_it": "burro, achillea e pino mugo",
+      "nome_fr": "Omble chevallier de Lillaz",
+      "ingredienti_fr": "beurre, achill\u00e9e et pin",
+      "nome_en": "Lillaz char",
+      "ingredienti_en": "butter, yarrow and pine",
+      "categoria": "alla_carta",
+      "prezzo_carta": 38
+    },
+    {
+      "id": "raviolini_faraona",
+      "nome_it": "I raviolini di faraona",
+      "ingredienti_it": "Vin Santo e limone, consomm\u00e9 di montagna",
+      "nome_fr": "Raviolini de pintade",
+      "ingredienti_fr": "au Vin Santo et citron, consomm\u00e9 de montagne",
+      "nome_en": "Guinea fowl raviolini",
+      "ingredienti_en": "with Vin Santo and lemon, mountain consomm\u00e9",
+      "categoria": "alla_carta",
+      "prezzo_carta": 42
+    },
+    {
+      "id": "storione",
+      "nome_it": "Lo storione",
+      "ingredienti_it": "zafferano, cavolo nero, finocchio e panino al vapore",
+      "nome_fr": "Esturgeon",
+      "ingredienti_fr": "safran, chou noir, fenouil et petit pain vapeur",
+      "nome_en": "Sturgeon",
+      "ingredienti_en": "saffron, black cabbage, fennel and steamed bun",
+      "categoria": "alla_carta",
+      "prezzo_carta": 48
+    },
+    {
+      "id": "farmville",
+      "nome_it": "Farmville",
+      "ingredienti_it": "latte, timo, maggiorana, Chartreuse, segale e fieno",
+      "nome_fr": "Farmville",
+      "ingredienti_fr": "lait, thym, marjolaine, Chartreuse, seigle et foin",
+      "nome_en": "Farmville",
+      "ingredienti_en": "milk, thyme, marjoram, Chartreuse, rye and hay",
+      "categoria": "alla_carta",
+      "prezzo_carta": 28
+    },
+    {
+      "id": "nashi",
+      "nome_it": "Nashi",
+      "ingredienti_it": "timo, bergamotto, aglio nero e pinoli",
+      "nome_fr": "Nashi",
+      "ingredienti_fr": "thym, bergamote, ail noir et pignons de pin",
+      "nome_en": "Nashi",
+      "ingredienti_en": "thyme, bergamot, black garlic and pine nuts",
+      "categoria": "alla_carta",
+      "prezzo_carta": null
+    }
+  ],
+  "menu_degustazione": [
+    {
+      "id": "esprit",
+      "nome": "Esprit",
+      "prezzo": 140
+    },
+    {
+      "id": "terroir",
+      "nome": "Terroir",
+      "prezzo": 140
+    },
+    {
+      "id": "abbinamento_esprit_francia_italia",
+      "nome": "Abbinamenti vini Esprit",
+      "sottotitolo": "Quando la Francia e l'Italia parlano la lingua del gusto\u2026",
+      "menu_riferimento": "esprit",
+      "prezzo": 220
+    },
+    {
+      "id": "abbinamento_esprit_mondo",
+      "nome": "Abbinamenti vini Esprit",
+      "sottotitolo": "Scoprire il mondo un sorso alla volta!",
+      "menu_riferimento": "esprit",
+      "prezzo": 120
+    },
+    {
+      "id": "abbinamento_terroir_vitae",
+      "nome": "Abbinamenti vini Terroir",
+      "sottotitolo": "Vitae: Terre & Coraggio: Benvenuti in Valle d'Aosta",
+      "menu_riferimento": "terroir",
+      "prezzo": 120
+    }
+  ],
+  "team": [
+    {
+      "nome": "Niccol\u00f2 de Riu",
+      "ruolo": "Chef di cucina"
+    },
+    {
+      "nome": "Andrea Gandolfo",
+      "ruolo": "Capo pasticcere"
+    },
+    {
+      "nome": "Pietro Imbimbo Roullet",
+      "ruolo": "Ma\u00eetre d'"
+    },
+    {
+      "nome": "Rino Billia",
+      "ruolo": "Sommelier"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+streamlit>=1.30
+reportlab
+pypdf
+PyMuPDF
+Pillow
+numpy
+openpyxl
+supabase
