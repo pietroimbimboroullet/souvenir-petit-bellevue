@@ -134,6 +134,15 @@ def delete_piatto(piatto_id: str):
     return True
 
 
+def delete_all_piatti():
+    """Elimina tutti i piatti dalla tabella."""
+    client = _init_client()
+    if not client:
+        return False
+    client.table("piatti").delete().neq("id", "").execute()
+    return True
+
+
 def reorder_piatti(ordered_ids: list):
     """Aggiorna il campo 'ordine' per tutti i piatti."""
     client = _init_client()
