@@ -615,15 +615,25 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
     lingua = str(lingua).strip().lower()
     date_text = format_date(dt, lingua)
     tipo_menu = str(tipo_menu).strip().lower()
-    # Composizione menu degustazione: ordine esplicito
-    MENU_PIATTI = {
+    # Composizione menu degustazione: leggi piatti_ids dal DB
+    db = get_db()
+    menu_piatti_db = {}
+    for m in db.get("menu_degustazione", []):
+        if m.get("piatti_ids"):
+            menu_piatti_db[m["id"]] = m["piatti_ids"]
+
+    # Fallback hardcoded se il DB non ha piatti_ids
+    MENU_PIATTI_FALLBACK = {
         "esprit": ["animelle", "spaghettoni_martelli", "piccione",
                     "carrello_formaggi", "nashi", "luna_rossa"],
         "terroir": ["sedano_rapa", "risotto_cavolo_viola", "zuppa_del_bosco",
                      "carrello_formaggi", "nashi", "topinambur"],
     }
-    if tipo_menu in MENU_PIATTI:
-        piatti_ids = MENU_PIATTI[tipo_menu]
+
+    if tipo_menu in menu_piatti_db:
+        piatti_ids = menu_piatti_db[tipo_menu]
+    elif tipo_menu in MENU_PIATTI_FALLBACK:
+        piatti_ids = MENU_PIATTI_FALLBACK[tipo_menu]
     else:
         # Carta: leggi dal campo piatti dell'Excel
         piatti_ids = [p.strip() for p in str(piatti_csv).split(",") if p.strip()]

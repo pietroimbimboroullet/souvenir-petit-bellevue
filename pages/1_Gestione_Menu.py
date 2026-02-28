@@ -12,7 +12,7 @@ from supabase_utils import (
     save_team_member, delete_team_member,
     _load_from_json,
 )
-from pdf_import import extract_from_pdf, pdf_to_preview_images, build_menu_piatti_ids
+from pdf_import import extract_from_pdf, pdf_to_preview_images
 
 st.set_page_config(page_title="Gestione Menu", layout="wide")
 st.title("Gestione Menu")
@@ -37,19 +37,7 @@ if "data_loaded" not in st.session_state:
     st.session_state.piatti, st.session_state.menu_deg, st.session_state.team = _reload()
     st.session_state.data_loaded = True
 
-CATEGORIE = ["menu_esprit", "menu_terroir", "menu_esprit_terroir", "alla_carta"]
-
-_CAT_COLORS = {
-    "menu_esprit": "#8B6F47",
-    "menu_terroir": "#5B7A5E",
-    "menu_esprit_terroir": "#7B6B8A",
-    "alla_carta": "#9A7B6B",
-}
-
-def _cat_badge(cat: str) -> str:
-    color = _CAT_COLORS.get(cat, "#888")
-    label = cat.replace("menu_", "").replace("_", " ").title()
-    return f'<span style="background:{color};color:#FAF6EF;padding:2px 8px;border-radius:10px;font-size:0.75em;font-weight:600">{label}</span>'
+CATEGORIE = ["menu_esprit", "menu_terroir", "alla_carta"]
 
 
 # ══════════════════════════════════════════════════════════════
@@ -130,15 +118,14 @@ with tab_import:
                         st.caption(f"{len(items)} piatti — usa le frecce per riordinare")
 
                         for idx, p in enumerate(items):
-                            c_num, c_name, c_cat, c_actions = st.columns([0.4, 4, 2, 1.5])
+                            c_num, c_name, c_price, c_actions = st.columns([0.4, 4, 1, 1.5])
                             with c_num:
                                 st.markdown(f"**{idx+1}**")
                             with c_name:
                                 st.markdown(f"**{p.get('nome_it', '?')}**")
                                 if p.get("ingredienti_it"):
                                     st.caption(p["ingredienti_it"])
-                            with c_cat:
-                                st.markdown(_cat_badge(p.get("categoria", "")), unsafe_allow_html=True)
+                            with c_price:
                                 if p.get("prezzo_carta"):
                                     st.caption(f"{p['prezzo_carta']} EUR")
                             with c_actions:
@@ -160,7 +147,7 @@ with tab_import:
                     with st.expander("Modifica contenuti piatti", expanded=False):
                         df = pd.DataFrame(items)
                         column_order = ["id", "nome_it", "ingredienti_it", "nome_fr", "ingredienti_fr",
-                                        "nome_en", "ingredienti_en", "categoria", "prezzo_carta"]
+                                        "nome_en", "ingredienti_en", "prezzo_carta"]
                         for col in column_order:
                             if col not in df.columns:
                                 df[col] = ""
@@ -178,11 +165,13 @@ with tab_import:
                                 "ingredienti_fr": st.column_config.TextColumn("Ingredienti FR", width="large"),
                                 "nome_en": st.column_config.TextColumn("Nome EN", width="large"),
                                 "ingredienti_en": st.column_config.TextColumn("Ingredienti EN", width="large"),
-                                "categoria": st.column_config.SelectboxColumn("Categoria", options=CATEGORIE, width="medium"),
                                 "prezzo_carta": st.column_config.NumberColumn("Prezzo", width="small"),
                             },
                             key="pdf_piatti_editor",
                         )
+
+                    # Helper: mappa nome_it -> id dai piatti estratti
+                    _pid_map = {p["nome_it"]: p["id"] for p in items}
 
                     # ── MENU DEGUSTAZIONE ESTRATTI ──
                     with st.container(border=True):
@@ -191,19 +180,18 @@ with tab_import:
                             for m in menus:
                                 mc1, mc2 = st.columns([3, 1])
                                 with mc1:
-                                    piatti_ids = build_menu_piatti_ids(items, m["id"])
-                                    piatti_names = [p["nome_it"] for p in items if p["id"] in piatti_ids]
                                     st.markdown(f"**{m['nome']}** `{m['id']}`")
-                                    if piatti_names:
-                                        st.caption(" → ".join(piatti_names))
+                                    pids = m.get("piatti_ids", [])
+                                    if pids:
+                                        pnames = [p["nome_it"] for p in items if p["id"] in pids]
+                                        st.caption(" → ".join(pnames) if pnames else ", ".join(pids))
                                     else:
                                         st.caption("_Nessun piatto associato_")
                                 with mc2:
                                     if m.get("prezzo"):
                                         st.metric("Prezzo", f"{m['prezzo']} EUR")
                         else:
-                            st.caption("Nessun menu degustazione estratto dal PDF.")
-                            st.info("I menu Esprit e Terroir verranno creati automaticamente dai piatti con le categorie corrispondenti.")
+                            st.info("Nessun menu degustazione estratto dal PDF.")
 
                     # ── ABBINAMENTI VINI ──
                     with st.container(border=True):
@@ -234,7 +222,6 @@ with tab_import:
                         st.warning("Tutti i piatti e menu esistenti verranno eliminati e sostituiti.")
 
                     if st.button("Conferma e salva tutto", type="primary", key="btn_save_imported", use_container_width=True):
-                        # Usa edited_df se l'expander e' stato usato, altrimenti items originali
                         valid_rows = edited_df.dropna(subset=["id", "nome_it"])
                         valid_rows = valid_rows[valid_rows["id"].str.strip() != ""]
                         valid_rows = valid_rows[valid_rows["nome_it"].str.strip() != ""]
@@ -250,7 +237,6 @@ with tab_import:
                                     delete_all_piatti()
 
                                 saved_piatti = 0
-                                piatti_for_menu = []
                                 for ordine_idx, (_, row) in enumerate(valid_rows.iterrows()):
                                     piatto = {
                                         "id": str(row["id"]).strip(),
@@ -260,11 +246,9 @@ with tab_import:
                                         "ingredienti_fr": str(row.get("ingredienti_fr", "")).strip(),
                                         "nome_en": str(row.get("nome_en", "")).strip(),
                                         "ingredienti_en": str(row.get("ingredienti_en", "")).strip(),
-                                        "categoria": str(row.get("categoria", "alla_carta")),
                                         "prezzo_carta": int(row["prezzo_carta"]) if pd.notna(row.get("prezzo_carta")) else None,
                                         "ordine": ordine_idx,
                                     }
-                                    piatti_for_menu.append(piatto)
                                     if save_piatto(piatto):
                                         saved_piatti += 1
 
@@ -273,21 +257,12 @@ with tab_import:
                                 if is_replace:
                                     delete_all_menus()
 
-                                # Auto-genera menu se non estratti
-                                if not menus:
-                                    esprit_ids = build_menu_piatti_ids(piatti_for_menu, "esprit")
-                                    terroir_ids = build_menu_piatti_ids(piatti_for_menu, "terroir")
-                                    if esprit_ids:
-                                        menus.append({"id": "esprit", "nome": "Esprit", "prezzo": None})
-                                    if terroir_ids:
-                                        menus.append({"id": "terroir", "nome": "Terroir", "prezzo": None})
-
                                 for m in menus:
                                     menu_obj = {
                                         "id": m["id"],
                                         "nome": m["nome"],
                                         "prezzo": m.get("prezzo"),
-                                        "piatti_ids": build_menu_piatti_ids(piatti_for_menu, m["id"]),
+                                        "piatti_ids": m.get("piatti_ids", []),
                                     }
                                     if save_menu(menu_obj):
                                         saved_menus += 1
@@ -305,7 +280,6 @@ with tab_import:
 
                             st.success(f"Salvati **{saved_piatti} piatti** e **{saved_menus} menu/abbinamenti** su Supabase!")
 
-                            # Pulisci e ricarica
                             for k in ["pdf_extracted", "pdf_menus", "pdf_abbinamenti"]:
                                 st.session_state.pop(k, None)
                             st.session_state.piatti, st.session_state.menu_deg, st.session_state.team = _reload()
@@ -329,7 +303,6 @@ with tab_piatti:
                 with c2:
                     new_nome_en = st.text_input("Nome EN", key="new_p_nome_en")
                     new_ingr_en = st.text_input("Ingredienti EN", key="new_p_ingr_en")
-                    new_cat = st.selectbox("Categoria", CATEGORIE, key="new_p_cat")
                     new_prezzo = st.text_input("Prezzo carta", key="new_p_prezzo")
                     new_ordine = st.number_input("Ordine", value=len(piatti), key="new_p_ordine")
 
@@ -342,7 +315,6 @@ with tab_piatti:
                             "nome_it": new_nome_it, "ingredienti_it": new_ingr_it,
                             "nome_fr": new_nome_fr, "ingredienti_fr": new_ingr_fr,
                             "nome_en": new_nome_en, "ingredienti_en": new_ingr_en,
-                            "categoria": new_cat,
                             "prezzo_carta": new_prezzo if new_prezzo else None,
                             "ordine": int(new_ordine),
                         }
@@ -365,9 +337,8 @@ with tab_piatti:
                 en = p.get("nome_en", "")
                 st.caption(f"FR: {fr} | EN: {en}")
             with c3:
-                st.markdown(_cat_badge(p.get("categoria", "")), unsafe_allow_html=True)
                 if p.get("prezzo_carta"):
-                    st.caption(f"{p.get('prezzo_carta', '-')}")
+                    st.caption(f"{p.get('prezzo_carta', '-')} EUR")
             with c4:
                 if supabase_ok:
                     col_up, col_down, col_del = st.columns(3)
@@ -404,7 +375,6 @@ with tab_piatti:
                         with ec2:
                             e_nome_en = st.text_input("Nome EN", value=p.get("nome_en", ""), key=f"e_ne_{p['id']}")
                             e_ingr_en = st.text_input("Ingredienti EN", value=p.get("ingredienti_en", ""), key=f"e_ie_{p['id']}")
-                            e_cat = st.selectbox("Categoria", CATEGORIE, index=CATEGORIE.index(p.get("categoria", CATEGORIE[0])) if p.get("categoria") in CATEGORIE else 0, key=f"e_c_{p['id']}")
                             e_prezzo = st.text_input("Prezzo", value=str(p.get("prezzo_carta", "") or ""), key=f"e_p_{p['id']}")
 
                         if st.form_submit_button("Aggiorna"):
@@ -412,7 +382,6 @@ with tab_piatti:
                                 "nome_it": e_nome_it, "ingredienti_it": e_ingr_it,
                                 "nome_fr": e_nome_fr, "ingredienti_fr": e_ingr_fr,
                                 "nome_en": e_nome_en, "ingredienti_en": e_ingr_en,
-                                "categoria": e_cat,
                                 "prezzo_carta": e_prezzo if e_prezzo else None,
                             }
                             update_piatto(p["id"], updates)

@@ -12,21 +12,13 @@ import fitz  # PyMuPDF
 
 
 EXTRACTION_PROMPT = """Analizza queste immagini del menu di un ristorante fine dining.
-Il ristorante propone tipicamente due menu degustazione (es. "Esprit" e "Terroir") piu' piatti alla carta.
-Alcuni piatti possono apparire in ENTRAMBI i menu degustazione, e spesso sono anche ordinabili alla carta.
+Il ristorante propone menu degustazione (percorsi a prezzo fisso) e piatti alla carta.
 
 Restituisci un JSON object con 3 chiavi: "piatti", "menu_degustazione", "abbinamenti_vini".
 
-## PIATTI — REGOLA FONDAMENTALE: NESSUN DUPLICATO
-Ogni piatto deve comparire UNA SOLA VOLTA nella lista, anche se appare in piu' sezioni del menu.
-
-Per capire la categoria, ragiona cosi':
-1. Prima identifica QUALI piatti appartengono al menu "Esprit" e QUALI al menu "Terroir"
-2. Se un piatto appare SOLO nell'Esprit → categoria "menu_esprit"
-3. Se un piatto appare SOLO nel Terroir → categoria "menu_terroir"
-4. Se un piatto appare in ENTRAMBI i menu → categoria "menu_esprit_terroir"
-5. Se un piatto ha un prezzo individuale e non fa parte di nessun menu degustazione → categoria "alla_carta"
-6. Se un piatto fa parte di un menu degustazione MA ha anche un prezzo individuale, metti comunque la categoria del menu e aggiungi il prezzo in "prezzo_carta"
+## PIATTI
+Estrai TUTTI i piatti visibili, SENZA DUPLICATI. Ogni piatto una sola volta.
+NON includere titoli di sezione, intestazioni, note a pie' pagina, nomi dei menu.
 
 Campi per ogni piatto:
 - "nome_it": nome in italiano (Title Case, non MAIUSCOLO)
@@ -35,17 +27,19 @@ Campi per ogni piatto:
 - "ingredienti_fr": ingredienti in francese (se presente, altrimenti "")
 - "nome_en": nome in inglese (se presente, altrimenti "")
 - "ingredienti_en": ingredienti in inglese (se presente, altrimenti "")
-- "categoria": una tra "menu_esprit", "menu_terroir", "menu_esprit_terroir", "alla_carta"
-- "prezzo_carta": prezzo numerico se indicato, altrimenti null
+- "prezzo_carta": prezzo numerico se indicato accanto al piatto, altrimenti null
 
-NON includere: titoli di sezione, intestazioni, note a pie' pagina, nomi dei menu stessi.
-L'ordine dei piatti deve seguire la sequenza del pasto: antipasti, primi, secondi, formaggi, dessert.
+Ordina seguendo la sequenza del pasto: antipasti, primi, secondi, formaggi, dessert.
 
-## MENU DEGUSTAZIONE
-Estrai i percorsi degustazione a prezzo fisso. Per ogni menu:
+## MENU DEGUSTAZIONE — FONDAMENTALE
+I menu degustazione sono percorsi a prezzo fisso composti da una selezione di piatti.
+Lo STESSO piatto puo' apparire in piu' menu (es. il carrello formaggi o un dessert possono essere sia nel menu Esprit che nel Terroir).
+
+Per ogni menu:
 - "id": snake_case (es. "esprit", "terroir")
 - "nome": nome del menu
-- "prezzo": prezzo numerico (solo il numero)
+- "prezzo": prezzo numerico del percorso (solo il numero)
+- "piatti": lista ORDINATA dei nomi italiani dei piatti che compongono questo menu, esattamente come appaiono nel PDF. Questi devono corrispondere ai "nome_it" della lista piatti.
 
 ## ABBINAMENTI VINI
 Estrai gli abbinamenti vini / wine pairings. Per ogni abbinamento:
@@ -101,24 +95,8 @@ def _clean_id(raw: str) -> str:
     return s
 
 
-def _merge_categoria(cat_a: str, cat_b: str) -> str:
-    """Unisce due categorie: se un piatto e' in esprit E terroir -> esprit_terroir."""
-    cats = {cat_a, cat_b}
-    if "menu_esprit_terroir" in cats:
-        return "menu_esprit_terroir"
-    if "menu_esprit" in cats and "menu_terroir" in cats:
-        return "menu_esprit_terroir"
-    # Stessa categoria o una e' alla_carta
-    if "menu_esprit" in cats:
-        return "menu_esprit"
-    if "menu_terroir" in cats:
-        return "menu_terroir"
-    return cat_a
-
-
 def _validate_piatti(raw: list) -> list[dict]:
     """Valida, normalizza e deduplica la lista di piatti estratti."""
-    VALID_CATS = {"menu_esprit", "menu_terroir", "menu_esprit_terroir", "alla_carta"}
     seen = {}  # id -> index in result
     result = []
     for i, item in enumerate(raw):
@@ -129,9 +107,6 @@ def _validate_piatti(raw: list) -> list[dict]:
             continue
 
         pid = _clean_id(nome_it)
-        cat = item.get("categoria", "alla_carta")
-        if cat not in VALID_CATS:
-            cat = "alla_carta"
 
         prezzo = item.get("prezzo_carta")
         if prezzo is not None:
@@ -140,13 +115,11 @@ def _validate_piatti(raw: list) -> list[dict]:
             except (ValueError, TypeError):
                 prezzo = None
 
-        # Deduplicazione: se gia' visto, unisci categoria e prendi prezzo se mancante
+        # Deduplicazione
         if pid in seen:
             existing = result[seen[pid]]
-            existing["categoria"] = _merge_categoria(existing["categoria"], cat)
             if existing["prezzo_carta"] is None and prezzo is not None:
                 existing["prezzo_carta"] = prezzo
-            # Riempi campi vuoti dal duplicato
             for lang in ["fr", "en"]:
                 for field in [f"nome_{lang}", f"ingredienti_{lang}"]:
                     if not existing.get(field) and (item.get(field) or "").strip():
@@ -161,7 +134,6 @@ def _validate_piatti(raw: list) -> list[dict]:
             "ingredienti_fr": (item.get("ingredienti_fr") or "").strip(),
             "nome_en": (item.get("nome_en") or "").strip(),
             "ingredienti_en": (item.get("ingredienti_en") or "").strip(),
-            "categoria": cat,
             "prezzo_carta": prezzo,
             "ordine": len(result),
         }
@@ -170,8 +142,15 @@ def _validate_piatti(raw: list) -> list[dict]:
     return result
 
 
-def _validate_menus(raw: list) -> list[dict]:
-    """Valida menu degustazione estratti."""
+def _validate_menus(raw: list, piatti: list[dict]) -> list[dict]:
+    """Valida menu degustazione estratti e risolve piatti_ids dai nomi."""
+    # Mappa nome_it (lowercase) -> id per risolvere i nomi piatti
+    nome_to_id = {}
+    for p in piatti:
+        nome_to_id[p["nome_it"].lower().strip()] = p["id"]
+        # Anche senza articolo
+        nome_to_id[_clean_id(p["nome_it"])] = p["id"]
+
     result = []
     for item in raw:
         if not isinstance(item, dict):
@@ -183,12 +162,33 @@ def _validate_menus(raw: list) -> list[dict]:
             "id": (item.get("id") or _clean_id(nome)).strip(),
             "nome": nome,
             "prezzo": None,
+            "piatti_ids": [],
         }
         if item.get("prezzo") is not None:
             try:
                 menu["prezzo"] = int(float(item["prezzo"]))
             except (ValueError, TypeError):
                 pass
+
+        # Risolvi nomi piatti -> ID
+        raw_piatti = item.get("piatti", [])
+        if isinstance(raw_piatti, list):
+            for nome_piatto in raw_piatti:
+                if not isinstance(nome_piatto, str):
+                    continue
+                nome_lower = nome_piatto.strip().lower()
+                pid = nome_to_id.get(nome_lower)
+                if not pid:
+                    pid = nome_to_id.get(_clean_id(nome_piatto))
+                if not pid:
+                    # Fuzzy: cerca contenimento
+                    for key, val in nome_to_id.items():
+                        if nome_lower in key or key in nome_lower:
+                            pid = val
+                            break
+                if pid and pid not in menu["piatti_ids"]:
+                    menu["piatti_ids"].append(pid)
+
         result.append(menu)
     return result
 
@@ -216,18 +216,6 @@ def _validate_abbinamenti(raw: list) -> list[dict]:
                 pass
         result.append(abb)
     return result
-
-
-def build_menu_piatti_ids(piatti: list[dict], menu_id: str) -> list[str]:
-    """Costruisce la lista piatti_ids per un menu dalle categorie dei piatti."""
-    cat_map = {
-        "esprit": {"menu_esprit", "menu_esprit_terroir"},
-        "terroir": {"menu_terroir", "menu_esprit_terroir"},
-    }
-    cats = cat_map.get(menu_id, set())
-    if not cats:
-        return []
-    return [p["id"] for p in piatti if p.get("categoria") in cats]
 
 
 def extract_from_pdf(pdf_bytes: bytes, api_key: str) -> dict:
@@ -271,7 +259,6 @@ def extract_from_pdf(pdf_bytes: bytes, api_key: str) -> dict:
         raise ValueError(f"Claude non ha restituito JSON valido: {e}\n\nRisposta:\n{raw_text[:500]}")
 
     if isinstance(data, list):
-        # Backward compat: solo piatti
         return {
             "piatti": _validate_piatti(data),
             "menu_degustazione": [],
@@ -282,22 +269,11 @@ def extract_from_pdf(pdf_bytes: bytes, api_key: str) -> dict:
         raise ValueError(f"Atteso JSON object, ricevuto: {type(data).__name__}")
 
     piatti = _validate_piatti(data.get("piatti", []))
-    menus = _validate_menus(data.get("menu_degustazione", []))
+    menus = _validate_menus(data.get("menu_degustazione", []), piatti)
     abbinamenti = _validate_abbinamenti(data.get("abbinamenti_vini", []))
-
-    # Auto-assegna piatti_ids ai menu
-    for m in menus:
-        m["piatti_ids"] = build_menu_piatti_ids(piatti, m["id"])
 
     return {
         "piatti": piatti,
         "menu_degustazione": menus,
         "abbinamenti_vini": abbinamenti,
     }
-
-
-# Backward compat
-def extract_piatti_from_pdf(pdf_bytes: bytes, api_key: str) -> list[dict]:
-    """Legacy wrapper."""
-    result = extract_from_pdf(pdf_bytes, api_key)
-    return result["piatti"]
