@@ -774,20 +774,16 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
     total_content = sum(b["block_h"] for b in dish_blocks)
     gap_count = N - 1 if N > 1 else 1
 
-    # Gap elegante: proporzionale al contenuto, con min/max ragionevoli
-    # ~40pt (14mm) è un buon gap per fine dining, cap a 50pt
-    avg_block_h = total_content / N if N > 0 else 30
-    ideal_gap = min(50, max(30, avg_block_h * 1.1))
-    # Se non c'è abbastanza spazio, comprimi proporzionalmente
-    max_gap = (total_available - total_content) / gap_count if gap_count > 0 else ideal_gap
-    gap_height = min(ideal_gap, max_gap)
+    # Gap naturale: distribuisci lo spazio disponibile tra i piatti
+    # Cap massimo a 70pt (~25mm) per non esagerare con pochi piatti
+    natural_gap = (total_available - total_content) / gap_count if gap_count > 0 else 0
+    gap_height = min(70, natural_gap)
 
-    # Calcola altezza gruppo e centra leggermente sopra il centro visivo
+    # Centra il gruppo leggermente sopra il centro visivo (40/60)
     group_h = total_content + (gap_count * gap_height if N > 1 else 0)
     remaining = total_available - group_h
-    # 45% sopra, 55% sotto → spostato leggermente in alto
-    y_top = P2_DISHES_START_Y - remaining * 0.38
-    y_top = min(y_top, P2_DISHES_START_Y)  # non oltre il top
+    y_top = P2_DISHES_START_Y - remaining * 0.40
+    y_top = min(y_top, P2_DISHES_START_Y)
     _position_blocks_from_y(dish_blocks, gap_height, y_top, P2_DISHES_END_Y)
 
     # Re-wrap iterativo: ri-splitta SOLO se il testo non entra nello
@@ -813,13 +809,11 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
             break
         # Riposiziona dopo re-wrap
         total_content = sum(b["block_h"] for b in dish_blocks)
-        avg_block_h = total_content / N if N > 0 else 30
-        ideal_gap = min(50, max(30, avg_block_h * 1.1))
-        max_gap = (total_available - total_content) / gap_count if gap_count > 0 else ideal_gap
-        gap_height = min(ideal_gap, max_gap)
+        natural_gap = (total_available - total_content) / gap_count if gap_count > 0 else 0
+        gap_height = min(70, natural_gap)
         group_h = total_content + (gap_count * gap_height if N > 1 else 0)
         remaining = total_available - group_h
-        y_top = P2_DISHES_START_Y - remaining * 0.38
+        y_top = P2_DISHES_START_Y - remaining * 0.40
         y_top = min(y_top, P2_DISHES_START_Y)
         _position_blocks_from_y(dish_blocks, gap_height, y_top, P2_DISHES_END_Y)
 
