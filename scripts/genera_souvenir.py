@@ -774,18 +774,21 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
     total_content = sum(b["block_h"] for b in dish_blocks)
     gap_count = N - 1 if N > 1 else 1
 
-    if N >= 5:
-        # Menu degustazione: distribuisci uniformemente su TUTTO lo spazio
-        gap_height = (total_available - total_content) / gap_count
-        position_blocks_vertically(dish_blocks, gap_height,
-                                   P2_DISHES_START_Y, P2_DISHES_END_Y,
-                                   0, P2_DISHES_START_Y)
-    else:
-        # Pochi piatti (carta): posiziona a 1/3 dall'alto
-        gap_height = min(DISH_STD_GAP, (total_available - total_content) / gap_count)
-        group_h = total_content + (gap_count * gap_height if N > 1 else 0)
-        y_top = P2_DISHES_START_Y - (total_available - group_h) / 3
-        _position_blocks_from_y(dish_blocks, gap_height, y_top, P2_DISHES_END_Y)
+    # Gap elegante: proporzionale al contenuto, con min/max ragionevoli
+    # ~40pt (14mm) è un buon gap per fine dining, cap a 50pt
+    avg_block_h = total_content / N if N > 0 else 30
+    ideal_gap = min(50, max(30, avg_block_h * 1.1))
+    # Se non c'è abbastanza spazio, comprimi proporzionalmente
+    max_gap = (total_available - total_content) / gap_count if gap_count > 0 else ideal_gap
+    gap_height = min(ideal_gap, max_gap)
+
+    # Calcola altezza gruppo e centra leggermente sopra il centro visivo
+    group_h = total_content + (gap_count * gap_height if N > 1 else 0)
+    remaining = total_available - group_h
+    # 45% sopra, 55% sotto → spostato leggermente in alto
+    y_top = P2_DISHES_START_Y - remaining * 0.38
+    y_top = min(y_top, P2_DISHES_START_Y)  # non oltre il top
+    _position_blocks_from_y(dish_blocks, gap_height, y_top, P2_DISHES_END_Y)
 
     # Re-wrap iterativo: ri-splitta SOLO se il testo non entra nello
     # spazio fisico tra decorazione e piega (fit_w). Non re-wrappare
@@ -810,18 +813,17 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
             break
         # Riposiziona dopo re-wrap
         total_content = sum(b["block_h"] for b in dish_blocks)
-        if N >= 5:
-            gap_height = (total_available - total_content) / gap_count
-            position_blocks_vertically(dish_blocks, gap_height,
-                                       P2_DISHES_START_Y, P2_DISHES_END_Y,
-                                       0, P2_DISHES_START_Y)
-        else:
-            gap_height = min(DISH_STD_GAP, (total_available - total_content) / gap_count)
-            group_h = total_content + (gap_count * gap_height if N > 1 else 0)
-            y_top = P2_DISHES_START_Y - (total_available - group_h) / 3
-            _position_blocks_from_y(dish_blocks, gap_height, y_top, P2_DISHES_END_Y)
+        avg_block_h = total_content / N if N > 0 else 30
+        ideal_gap = min(50, max(30, avg_block_h * 1.1))
+        max_gap = (total_available - total_content) / gap_count if gap_count > 0 else ideal_gap
+        gap_height = min(ideal_gap, max_gap)
+        group_h = total_content + (gap_count * gap_height if N > 1 else 0)
+        remaining = total_available - group_h
+        y_top = P2_DISHES_START_Y - remaining * 0.38
+        y_top = min(y_top, P2_DISHES_START_Y)
+        _position_blocks_from_y(dish_blocks, gap_height, y_top, P2_DISHES_END_Y)
 
-    dish_mode = "distribuito" if N >= 5 else "1/3 dall'alto"
+    dish_mode = f"gap={gap_height:.0f}pt, {N} piatti"
     print(f"  Piatti: {N} blocchi ({dish_mode}), gap={gap_height:.1f}pt")
 
     # Raccogli elementi piatti + separatori
