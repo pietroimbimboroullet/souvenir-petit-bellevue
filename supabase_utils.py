@@ -175,6 +175,15 @@ def delete_menu(menu_id: str):
     return True
 
 
+def delete_all_menus():
+    """Elimina tutti i menu degustazione dalla tabella."""
+    client = _init_client()
+    if not client:
+        return False
+    client.table("menu_degustazione").delete().neq("id", "").execute()
+    return True
+
+
 # ══════════════════════════════════════════════════════════════
 # CRUD TEAM
 # ══════════════════════════════════════════════════════════════

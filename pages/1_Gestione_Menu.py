@@ -8,11 +8,11 @@ import pandas as pd
 from supabase_utils import (
     is_supabase_active, load_piatti, load_menu_degustazione, load_team,
     save_piatto, update_piatto, delete_piatto, delete_all_piatti, reorder_piatti,
-    save_menu, delete_menu,
+    save_menu, delete_menu, delete_all_menus,
     save_team_member, delete_team_member,
     _load_from_json,
 )
-from pdf_import import extract_piatti_from_pdf, pdf_to_preview_images
+from pdf_import import extract_from_pdf, pdf_to_preview_images, build_menu_piatti_ids
 
 st.set_page_config(page_title="Gestione Menu", layout="wide")
 st.title("Gestione Menu")
@@ -39,11 +39,278 @@ if "data_loaded" not in st.session_state:
 
 CATEGORIE = ["menu_esprit", "menu_terroir", "menu_esprit_terroir", "alla_carta"]
 
+_CAT_COLORS = {
+    "menu_esprit": "#8B6F47",
+    "menu_terroir": "#5B7A5E",
+    "menu_esprit_terroir": "#7B6B8A",
+    "alla_carta": "#9A7B6B",
+}
+
+def _cat_badge(cat: str) -> str:
+    color = _CAT_COLORS.get(cat, "#888")
+    label = cat.replace("menu_", "").replace("_", " ").title()
+    return f'<span style="background:{color};color:#FAF6EF;padding:2px 8px;border-radius:10px;font-size:0.75em;font-weight:600">{label}</span>'
+
+
 # ══════════════════════════════════════════════════════════════
 # TABS
 # ══════════════════════════════════════════════════════════════
 
-tab_piatti, tab_menu, tab_team = st.tabs(["Piatti", "Menu degustazione", "Team"])
+tab_import, tab_piatti, tab_menu, tab_team = st.tabs(
+    ["Importa da PDF", "Piatti", "Menu degustazione", "Team"]
+)
+
+# ── TAB IMPORT ─────────────────────────────────────────────
+with tab_import:
+    if not supabase_ok:
+        st.info("Import non disponibile senza Supabase.")
+    else:
+        # API key check
+        api_key = None
+        try:
+            api_key = st.secrets["anthropic"]["api_key"]
+            if api_key == "YOUR_ANTHROPIC_API_KEY_HERE":
+                api_key = None
+        except (KeyError, Exception):
+            pass
+
+        if not api_key:
+            st.error("API key Anthropic non configurata. Aggiungi `[anthropic] api_key` in `.streamlit/secrets.toml`.")
+        else:
+            st.markdown("Carica il PDF del menu per estrarre automaticamente **piatti**, **menu degustazione** e **abbinamenti vini**.")
+
+            uploaded_pdf = st.file_uploader(
+                "Carica il PDF del menu",
+                type=["pdf"],
+                key="pdf_import_uploader",
+            )
+
+            if uploaded_pdf:
+                pdf_bytes = uploaded_pdf.read()
+
+                # Anteprima pagine
+                with st.container(border=True):
+                    st.markdown("##### Anteprima")
+                    previews = pdf_to_preview_images(pdf_bytes, dpi=100)
+                    cols = st.columns(min(len(previews), 4))
+                    for i, png in enumerate(previews):
+                        with cols[i % len(cols)]:
+                            st.image(png, caption=f"Pagina {i + 1}", use_container_width=True)
+
+                # Bottone estrazione
+                if st.button("Estrai con AI", type="primary", key="btn_extract_pdf", use_container_width=True):
+                    with st.spinner("Claude sta analizzando il menu..."):
+                        try:
+                            result = extract_from_pdf(pdf_bytes, api_key)
+                            st.session_state.pdf_extracted = result["piatti"]
+                            st.session_state.pdf_menus = result["menu_degustazione"]
+                            st.session_state.pdf_abbinamenti = result["abbinamenti_vini"]
+                            n_p = len(result["piatti"])
+                            n_m = len(result["menu_degustazione"])
+                            n_a = len(result["abbinamenti_vini"])
+                            st.success(f"Estratti **{n_p} piatti**, **{n_m} menu**, **{n_a} abbinamenti vini**")
+                        except Exception as e:
+                            st.error(f"Errore estrazione: {e}")
+
+                # ── RISULTATI ──────────────────────────────────────
+                has_results = (
+                    "pdf_extracted" in st.session_state and st.session_state.pdf_extracted
+                )
+
+                if has_results:
+                    items = st.session_state.pdf_extracted
+                    menus = st.session_state.get("pdf_menus", [])
+                    abbinamenti = st.session_state.get("pdf_abbinamenti", [])
+
+                    st.divider()
+
+                    # ── PIATTI: ordine e rimozione ──
+                    with st.container(border=True):
+                        st.markdown("##### Piatti estratti")
+                        st.caption(f"{len(items)} piatti — usa le frecce per riordinare")
+
+                        for idx, p in enumerate(items):
+                            c_num, c_name, c_cat, c_actions = st.columns([0.4, 4, 2, 1.5])
+                            with c_num:
+                                st.markdown(f"**{idx+1}**")
+                            with c_name:
+                                st.markdown(f"**{p.get('nome_it', '?')}**")
+                                if p.get("ingredienti_it"):
+                                    st.caption(p["ingredienti_it"])
+                            with c_cat:
+                                st.markdown(_cat_badge(p.get("categoria", "")), unsafe_allow_html=True)
+                                if p.get("prezzo_carta"):
+                                    st.caption(f"{p['prezzo_carta']} EUR")
+                            with c_actions:
+                                bc1, bc2, bc3 = st.columns(3)
+                                with bc1:
+                                    if idx > 0 and st.button("↑", key=f"imp_up_{idx}"):
+                                        items[idx], items[idx - 1] = items[idx - 1], items[idx]
+                                        st.rerun()
+                                with bc2:
+                                    if idx < len(items) - 1 and st.button("↓", key=f"imp_dn_{idx}"):
+                                        items[idx], items[idx + 1] = items[idx + 1], items[idx]
+                                        st.rerun()
+                                with bc3:
+                                    if st.button("✕", key=f"imp_rm_{idx}"):
+                                        items.pop(idx)
+                                        st.rerun()
+
+                    # ── MODIFICA CONTENUTI (data_editor) ──
+                    with st.expander("Modifica contenuti piatti", expanded=False):
+                        df = pd.DataFrame(items)
+                        column_order = ["id", "nome_it", "ingredienti_it", "nome_fr", "ingredienti_fr",
+                                        "nome_en", "ingredienti_en", "categoria", "prezzo_carta"]
+                        for col in column_order:
+                            if col not in df.columns:
+                                df[col] = ""
+                        df = df[column_order]
+
+                        edited_df = st.data_editor(
+                            df,
+                            num_rows="dynamic",
+                            use_container_width=True,
+                            column_config={
+                                "id": st.column_config.TextColumn("ID", width="medium"),
+                                "nome_it": st.column_config.TextColumn("Nome IT", width="large"),
+                                "ingredienti_it": st.column_config.TextColumn("Ingredienti IT", width="large"),
+                                "nome_fr": st.column_config.TextColumn("Nome FR", width="large"),
+                                "ingredienti_fr": st.column_config.TextColumn("Ingredienti FR", width="large"),
+                                "nome_en": st.column_config.TextColumn("Nome EN", width="large"),
+                                "ingredienti_en": st.column_config.TextColumn("Ingredienti EN", width="large"),
+                                "categoria": st.column_config.SelectboxColumn("Categoria", options=CATEGORIE, width="medium"),
+                                "prezzo_carta": st.column_config.NumberColumn("Prezzo", width="small"),
+                            },
+                            key="pdf_piatti_editor",
+                        )
+
+                    # ── MENU DEGUSTAZIONE ESTRATTI ──
+                    with st.container(border=True):
+                        st.markdown("##### Menu degustazione")
+                        if menus:
+                            for m in menus:
+                                mc1, mc2 = st.columns([3, 1])
+                                with mc1:
+                                    piatti_ids = build_menu_piatti_ids(items, m["id"])
+                                    piatti_names = [p["nome_it"] for p in items if p["id"] in piatti_ids]
+                                    st.markdown(f"**{m['nome']}** `{m['id']}`")
+                                    if piatti_names:
+                                        st.caption(" → ".join(piatti_names))
+                                    else:
+                                        st.caption("_Nessun piatto associato_")
+                                with mc2:
+                                    if m.get("prezzo"):
+                                        st.metric("Prezzo", f"{m['prezzo']} EUR")
+                        else:
+                            st.caption("Nessun menu degustazione estratto dal PDF.")
+                            st.info("I menu Esprit e Terroir verranno creati automaticamente dai piatti con le categorie corrispondenti.")
+
+                    # ── ABBINAMENTI VINI ──
+                    with st.container(border=True):
+                        st.markdown("##### Abbinamenti vini")
+                        if abbinamenti:
+                            for a in abbinamenti:
+                                ac1, ac2 = st.columns([3, 1])
+                                with ac1:
+                                    sub = f" — *{a['sottotitolo']}*" if a.get("sottotitolo") else ""
+                                    rif = f" (rif: `{a['menu_riferimento']}`)" if a.get("menu_riferimento") else ""
+                                    st.markdown(f"**{a['nome']}**{sub}{rif}")
+                                with ac2:
+                                    if a.get("prezzo"):
+                                        st.metric("Prezzo", f"{a['prezzo']} EUR")
+                        else:
+                            st.caption("Nessun abbinamento vini estratto dal PDF.")
+
+                    # ── SALVATAGGIO ──
+                    st.divider()
+                    import_mode = st.radio(
+                        "Modalita' di importazione:",
+                        ["Sostituisci TUTTO (piatti + menu)", "Aggiungi ai piatti esistenti"],
+                        key="pdf_import_mode",
+                        horizontal=True,
+                    )
+
+                    if import_mode == "Sostituisci TUTTO (piatti + menu)":
+                        st.warning("Tutti i piatti e menu esistenti verranno eliminati e sostituiti.")
+
+                    if st.button("Conferma e salva tutto", type="primary", key="btn_save_imported", use_container_width=True):
+                        # Usa edited_df se l'expander e' stato usato, altrimenti items originali
+                        valid_rows = edited_df.dropna(subset=["id", "nome_it"])
+                        valid_rows = valid_rows[valid_rows["id"].str.strip() != ""]
+                        valid_rows = valid_rows[valid_rows["nome_it"].str.strip() != ""]
+
+                        if valid_rows.empty:
+                            st.error("Nessun piatto valido da salvare.")
+                        else:
+                            with st.spinner("Salvataggio in corso..."):
+                                is_replace = import_mode.startswith("Sostituisci")
+
+                                # 1. Piatti
+                                if is_replace:
+                                    delete_all_piatti()
+
+                                saved_piatti = 0
+                                piatti_for_menu = []
+                                for ordine_idx, (_, row) in enumerate(valid_rows.iterrows()):
+                                    piatto = {
+                                        "id": str(row["id"]).strip(),
+                                        "nome_it": str(row["nome_it"]).strip(),
+                                        "ingredienti_it": str(row.get("ingredienti_it", "")).strip(),
+                                        "nome_fr": str(row.get("nome_fr", "")).strip(),
+                                        "ingredienti_fr": str(row.get("ingredienti_fr", "")).strip(),
+                                        "nome_en": str(row.get("nome_en", "")).strip(),
+                                        "ingredienti_en": str(row.get("ingredienti_en", "")).strip(),
+                                        "categoria": str(row.get("categoria", "alla_carta")),
+                                        "prezzo_carta": int(row["prezzo_carta"]) if pd.notna(row.get("prezzo_carta")) else None,
+                                        "ordine": ordine_idx,
+                                    }
+                                    piatti_for_menu.append(piatto)
+                                    if save_piatto(piatto):
+                                        saved_piatti += 1
+
+                                # 2. Menu degustazione + abbinamenti
+                                saved_menus = 0
+                                if is_replace:
+                                    delete_all_menus()
+
+                                # Auto-genera menu se non estratti
+                                if not menus:
+                                    esprit_ids = build_menu_piatti_ids(piatti_for_menu, "esprit")
+                                    terroir_ids = build_menu_piatti_ids(piatti_for_menu, "terroir")
+                                    if esprit_ids:
+                                        menus.append({"id": "esprit", "nome": "Esprit", "prezzo": None})
+                                    if terroir_ids:
+                                        menus.append({"id": "terroir", "nome": "Terroir", "prezzo": None})
+
+                                for m in menus:
+                                    menu_obj = {
+                                        "id": m["id"],
+                                        "nome": m["nome"],
+                                        "prezzo": m.get("prezzo"),
+                                        "piatti_ids": build_menu_piatti_ids(piatti_for_menu, m["id"]),
+                                    }
+                                    if save_menu(menu_obj):
+                                        saved_menus += 1
+
+                                for a in abbinamenti:
+                                    abb_obj = {
+                                        "id": a["id"],
+                                        "nome": a["nome"],
+                                        "sottotitolo": a.get("sottotitolo"),
+                                        "menu_riferimento": a.get("menu_riferimento"),
+                                        "prezzo": a.get("prezzo"),
+                                    }
+                                    if save_menu(abb_obj):
+                                        saved_menus += 1
+
+                            st.success(f"Salvati **{saved_piatti} piatti** e **{saved_menus} menu/abbinamenti** su Supabase!")
+
+                            # Pulisci e ricarica
+                            for k in ["pdf_extracted", "pdf_menus", "pdf_abbinamenti"]:
+                                st.session_state.pop(k, None)
+                            st.session_state.piatti, st.session_state.menu_deg, st.session_state.team = _reload()
+                            st.rerun()
+
 
 # ── TAB PIATTI ──────────────────────────────────────────────
 with tab_piatti:
@@ -84,130 +351,6 @@ with tab_piatti:
                             st.session_state.piatti, st.session_state.menu_deg, st.session_state.team = _reload()
                             st.rerun()
 
-    # ── IMPORT DA PDF ──────────────────────────────────────
-    if supabase_ok:
-        with st.expander("Importa piatti da PDF menu", expanded=False, icon=":material/picture_as_pdf:"):
-            # -- API key check
-            try:
-                api_key = st.secrets["anthropic"]["api_key"]
-                if api_key == "YOUR_ANTHROPIC_API_KEY_HERE":
-                    raise KeyError
-            except (KeyError, Exception):
-                st.error("API key Anthropic non configurata. Aggiungi `[anthropic] api_key = \"sk-...\"` in `.streamlit/secrets.toml`.")
-                api_key = None
-
-            if api_key:
-                uploaded_pdf = st.file_uploader(
-                    "Carica il PDF del menu",
-                    type=["pdf"],
-                    key="pdf_import_uploader",
-                )
-
-                if uploaded_pdf:
-                    pdf_bytes = uploaded_pdf.read()
-
-                    # Anteprima pagine
-                    st.markdown("**Anteprima pagine:**")
-                    previews = pdf_to_preview_images(pdf_bytes, dpi=100)
-                    cols = st.columns(min(len(previews), 4))
-                    for i, png in enumerate(previews):
-                        with cols[i % len(cols)]:
-                            st.image(png, caption=f"Pagina {i + 1}", use_container_width=True)
-
-                    # Bottone estrazione
-                    if st.button("Estrai piatti con AI", type="primary", key="btn_extract_pdf"):
-                        with st.spinner("Claude sta analizzando il menu..."):
-                            try:
-                                extracted = extract_piatti_from_pdf(pdf_bytes, api_key)
-                                st.session_state.pdf_extracted = extracted
-                                st.success(f"Estratti {len(extracted)} piatti!")
-                            except Exception as e:
-                                st.error(f"Errore estrazione: {e}")
-
-                    # Tabella editabile con risultati
-                    if "pdf_extracted" in st.session_state and st.session_state.pdf_extracted:
-                        st.markdown("---")
-                        st.markdown("**Rivedi e correggi i piatti estratti:**")
-
-                        df = pd.DataFrame(st.session_state.pdf_extracted)
-                        column_order = ["id", "nome_it", "ingredienti_it", "nome_fr", "ingredienti_fr",
-                                        "nome_en", "ingredienti_en", "categoria", "prezzo_carta", "ordine"]
-                        # Assicura che tutte le colonne esistano
-                        for col in column_order:
-                            if col not in df.columns:
-                                df[col] = "" if col != "ordine" else 0
-                        df = df[column_order]
-
-                        edited_df = st.data_editor(
-                            df,
-                            num_rows="dynamic",
-                            use_container_width=True,
-                            column_config={
-                                "id": st.column_config.TextColumn("ID", width="medium"),
-                                "nome_it": st.column_config.TextColumn("Nome IT", width="large"),
-                                "ingredienti_it": st.column_config.TextColumn("Ingredienti IT", width="large"),
-                                "nome_fr": st.column_config.TextColumn("Nome FR", width="large"),
-                                "ingredienti_fr": st.column_config.TextColumn("Ingredienti FR", width="large"),
-                                "nome_en": st.column_config.TextColumn("Nome EN", width="large"),
-                                "ingredienti_en": st.column_config.TextColumn("Ingredienti EN", width="large"),
-                                "categoria": st.column_config.SelectboxColumn(
-                                    "Categoria",
-                                    options=CATEGORIE,
-                                    width="medium",
-                                ),
-                                "prezzo_carta": st.column_config.NumberColumn("Prezzo", width="small"),
-                                "ordine": st.column_config.NumberColumn("Ordine", width="small"),
-                            },
-                            key="pdf_piatti_editor",
-                        )
-
-                        # Modalita' import
-                        import_mode = st.radio(
-                            "Modalita' di importazione:",
-                            ["Aggiungi ai piatti esistenti", "Sostituisci TUTTI i piatti"],
-                            key="pdf_import_mode",
-                            horizontal=True,
-                        )
-
-                        if import_mode == "Sostituisci TUTTI i piatti":
-                            st.warning("Tutti i piatti esistenti verranno eliminati e sostituiti con quelli importati.")
-
-                        if st.button("Conferma e salva", type="primary", key="btn_save_imported"):
-                            # Filtra righe vuote
-                            valid_rows = edited_df.dropna(subset=["id", "nome_it"])
-                            valid_rows = valid_rows[valid_rows["id"].str.strip() != ""]
-                            valid_rows = valid_rows[valid_rows["nome_it"].str.strip() != ""]
-
-                            if valid_rows.empty:
-                                st.error("Nessun piatto valido da salvare (ID e Nome IT sono obbligatori).")
-                            else:
-                                with st.spinner("Salvataggio in corso..."):
-                                    if import_mode == "Sostituisci TUTTI i piatti":
-                                        delete_all_piatti()
-
-                                    saved = 0
-                                    for _, row in valid_rows.iterrows():
-                                        piatto = {
-                                            "id": str(row["id"]).strip(),
-                                            "nome_it": str(row["nome_it"]).strip(),
-                                            "ingredienti_it": str(row.get("ingredienti_it", "")).strip(),
-                                            "nome_fr": str(row.get("nome_fr", "")).strip(),
-                                            "ingredienti_fr": str(row.get("ingredienti_fr", "")).strip(),
-                                            "nome_en": str(row.get("nome_en", "")).strip(),
-                                            "ingredienti_en": str(row.get("ingredienti_en", "")).strip(),
-                                            "categoria": str(row.get("categoria", "alla_carta")),
-                                            "prezzo_carta": int(row["prezzo_carta"]) if pd.notna(row.get("prezzo_carta")) else None,
-                                            "ordine": int(row.get("ordine", saved)),
-                                        }
-                                        if save_piatto(piatto):
-                                            saved += 1
-
-                                st.success(f"Salvati {saved} piatti su Supabase!")
-                                # Pulisci stato e ricarica
-                                del st.session_state.pdf_extracted
-                                st.session_state.piatti, st.session_state.menu_deg, st.session_state.team = _reload()
-                                st.rerun()
-
     # Lista piatti
     st.subheader(f"Piatti ({len(piatti)})")
 
@@ -222,31 +365,33 @@ with tab_piatti:
                 en = p.get("nome_en", "")
                 st.caption(f"FR: {fr} | EN: {en}")
             with c3:
-                st.caption(f"{p.get('categoria', '')} | {p.get('prezzo_carta', '-')}")
+                st.markdown(_cat_badge(p.get("categoria", "")), unsafe_allow_html=True)
+                if p.get("prezzo_carta"):
+                    st.caption(f"{p.get('prezzo_carta', '-')}")
             with c4:
                 if supabase_ok:
                     col_up, col_down, col_del = st.columns(3)
                     with col_up:
-                        if idx > 0 and st.button("^", key=f"up_{p['id']}", help="Sposta su"):
+                        if idx > 0 and st.button("↑", key=f"up_{p['id']}", help="Sposta su"):
                             ids = [x["id"] for x in piatti]
                             ids[idx], ids[idx - 1] = ids[idx - 1], ids[idx]
                             reorder_piatti(ids)
                             st.session_state.piatti, st.session_state.menu_deg, st.session_state.team = _reload()
                             st.rerun()
                     with col_down:
-                        if idx < len(piatti) - 1 and st.button("v", key=f"dn_{p['id']}", help="Sposta giu'"):
+                        if idx < len(piatti) - 1 and st.button("↓", key=f"dn_{p['id']}", help="Sposta giu'"):
                             ids = [x["id"] for x in piatti]
                             ids[idx], ids[idx + 1] = ids[idx + 1], ids[idx]
                             reorder_piatti(ids)
                             st.session_state.piatti, st.session_state.menu_deg, st.session_state.team = _reload()
                             st.rerun()
                     with col_del:
-                        if st.button("X", key=f"del_{p['id']}", help="Elimina"):
+                        if st.button("✕", key=f"del_{p['id']}", help="Elimina"):
                             delete_piatto(p["id"])
                             st.session_state.piatti, st.session_state.menu_deg, st.session_state.team = _reload()
                             st.rerun()
 
-            # Modifica inline (espandibile)
+            # Modifica inline
             if supabase_ok:
                 with st.expander("Modifica", expanded=False):
                     with st.form(f"edit_{p['id']}"):
@@ -304,7 +449,7 @@ with tab_menu:
                 pids = m.get("piatti_ids") or []
                 if pids:
                     names = [piatti_labels.get(pid, pid) for pid in pids]
-                    st.caption("Piatti: " + " -> ".join(names))
+                    st.caption("Piatti: " + " → ".join(names))
             with c2:
                 if supabase_ok:
                     if st.button("Elimina", key=f"del_menu_{m['id']}"):

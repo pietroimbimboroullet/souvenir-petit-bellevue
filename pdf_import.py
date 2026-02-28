@@ -1,6 +1,6 @@
 """
-pdf_import.py — Estrae piatti da PDF menu usando Claude Vision.
-Pipeline: PDF -> immagini PNG (PyMuPDF) -> Claude Sonnet -> JSON piatti.
+pdf_import.py — Estrae piatti, menu e abbinamenti vini da PDF menu usando Claude Vision.
+Pipeline: PDF -> immagini PNG (PyMuPDF) -> Claude Sonnet -> JSON strutturato.
 """
 
 import base64
@@ -11,29 +11,44 @@ import unicodedata
 import fitz  # PyMuPDF
 
 
-EXTRACTION_PROMPT = """Analizza queste immagini di un menu di ristorante.
-Estrai TUTTI i piatti visibili e restituisci un JSON array.
+EXTRACTION_PROMPT = """Analizza queste immagini di un menu di ristorante fine dining.
+Restituisci un JSON object con 3 chiavi: "piatti", "menu_degustazione", "abbinamenti_vini".
 
-Per ogni piatto restituisci un oggetto con ESATTAMENTE questi campi:
-- "nome_it": nome del piatto in italiano
+## PIATTI
+Estrai TUTTI i piatti visibili. Per ogni piatto:
+- "nome_it": nome in italiano (Title Case, non MAIUSCOLO)
 - "ingredienti_it": ingredienti/descrizione in italiano
-- "nome_fr": nome del piatto in francese (se presente, altrimenti stringa vuota)
-- "ingredienti_fr": ingredienti/descrizione in francese (se presente, altrimenti stringa vuota)
-- "nome_en": nome del piatto in inglese (se presente, altrimenti stringa vuota)
-- "ingredienti_en": ingredienti/descrizione in inglese (se presente, altrimenti stringa vuota)
+- "nome_fr": nome in francese (se presente, altrimenti "")
+- "ingredienti_fr": ingredienti in francese (se presente, altrimenti "")
+- "nome_en": nome in inglese (se presente, altrimenti "")
+- "ingredienti_en": ingredienti in inglese (se presente, altrimenti "")
 - "categoria": una tra "menu_esprit", "menu_terroir", "menu_esprit_terroir", "alla_carta"
 - "prezzo_carta": prezzo numerico se indicato, altrimenti null
 
-Regole:
-- Se il piatto fa parte di un menu degustazione chiamato "Esprit", usa categoria "menu_esprit"
-- Se fa parte di un menu "Terroir", usa categoria "menu_terroir"
-- Se appare in entrambi, usa "menu_esprit_terroir"
+Regole categorie:
+- Se il piatto fa parte di un menu degustazione "Esprit" (o simile), usa "menu_esprit"
+- Se fa parte di un menu "Terroir" (o simile), usa "menu_terroir"
+- Se appare in entrambi i menu, usa "menu_esprit_terroir"
 - Se e' alla carta con prezzo proprio, usa "alla_carta"
 - NON includere titoli di sezione, intestazioni, o note a pie' di pagina
-- I nomi dei piatti spesso sono in maiuscolo nel menu: convertili in Title Case
-- Gli ingredienti sono la descrizione sotto il nome del piatto
 
-Rispondi SOLO con il JSON array, senza markdown fences, senza testo aggiuntivo.
+## MENU DEGUSTAZIONE
+Estrai i menu degustazione (percorsi a prezzo fisso). Per ogni menu:
+- "id": identificativo snake_case (es. "esprit", "terroir")
+- "nome": nome del menu
+- "prezzo": prezzo numerico del menu (solo il numero, senza simbolo valuta)
+
+## ABBINAMENTI VINI
+Estrai tutti gli abbinamenti vini / wine pairings proposti. Per ogni abbinamento:
+- "id": identificativo snake_case (es. "abbinamento_esprit_italia", "abbinamento_terroir_vitae")
+- "nome": nome dell'abbinamento (es. "Abbinamenti vini Esprit")
+- "sottotitolo": sottotitolo/descrizione se presente (es. "Quando la Francia e l'Italia parlano...")
+- "menu_riferimento": id del menu a cui si riferisce (es. "esprit" o "terroir")
+- "prezzo": prezzo numerico
+
+Rispondi SOLO con il JSON object, senza markdown fences, senza testo aggiuntivo.
+Esempio struttura:
+{"piatti": [...], "menu_degustazione": [...], "abbinamenti_vini": [...]}
 """
 
 
@@ -67,16 +82,13 @@ def pdf_to_preview_images(pdf_bytes: bytes, dpi: int = 100) -> list[bytes]:
 
 def _clean_id(raw: str) -> str:
     """Normalizza un nome piatto in ID snake_case senza accenti."""
-    # Rimuovi accenti
     nfkd = unicodedata.normalize("NFKD", raw)
     ascii_str = nfkd.encode("ascii", "ignore").decode("ascii")
-    # Lowercase
     s = ascii_str.lower().strip()
-    # Rimuovi articoli comuni
-    for art in ["il ", "la ", "lo ", "l'", "le ", "i ", "gli ", "un ", "una ", "del ", "della ", "dei ", "delle "]:
+    for art in ["il ", "la ", "lo ", "l'", "le ", "i ", "gli ", "un ", "una ",
+                 "del ", "della ", "dei ", "delle "]:
         if s.startswith(art):
             s = s[len(art):]
-    # Sostituisci non-alfanumerici con underscore
     s = re.sub(r"[^a-z0-9]+", "_", s)
     s = s.strip("_")
     return s
@@ -84,13 +96,11 @@ def _clean_id(raw: str) -> str:
 
 def _validate_piatti(raw: list) -> list[dict]:
     """Valida e normalizza la lista di piatti estratti."""
-    REQUIRED = ["nome_it"]
     VALID_CATS = {"menu_esprit", "menu_terroir", "menu_esprit_terroir", "alla_carta"}
     result = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
             continue
-        # Deve avere almeno nome_it
         nome_it = (item.get("nome_it") or "").strip()
         if not nome_it:
             continue
@@ -106,10 +116,8 @@ def _validate_piatti(raw: list) -> list[dict]:
             "prezzo_carta": item.get("prezzo_carta"),
             "ordine": i,
         }
-        # Valida categoria
         if piatto["categoria"] not in VALID_CATS:
             piatto["categoria"] = "alla_carta"
-        # Prezzo: deve essere numerico o None
         if piatto["prezzo_carta"] is not None:
             try:
                 piatto["prezzo_carta"] = int(float(piatto["prezzo_carta"]))
@@ -119,15 +127,74 @@ def _validate_piatti(raw: list) -> list[dict]:
     return result
 
 
-def extract_piatti_from_pdf(pdf_bytes: bytes, api_key: str) -> list[dict]:
-    """Pipeline completa: PDF -> immagini -> Claude Vision -> piatti validati."""
+def _validate_menus(raw: list) -> list[dict]:
+    """Valida menu degustazione estratti."""
+    result = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        nome = (item.get("nome") or "").strip()
+        if not nome:
+            continue
+        menu = {
+            "id": (item.get("id") or _clean_id(nome)).strip(),
+            "nome": nome,
+            "prezzo": None,
+        }
+        if item.get("prezzo") is not None:
+            try:
+                menu["prezzo"] = int(float(item["prezzo"]))
+            except (ValueError, TypeError):
+                pass
+        result.append(menu)
+    return result
+
+
+def _validate_abbinamenti(raw: list) -> list[dict]:
+    """Valida abbinamenti vini estratti."""
+    result = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        nome = (item.get("nome") or "").strip()
+        if not nome:
+            continue
+        abb = {
+            "id": (item.get("id") or _clean_id(nome)).strip(),
+            "nome": nome,
+            "sottotitolo": (item.get("sottotitolo") or "").strip() or None,
+            "menu_riferimento": (item.get("menu_riferimento") or "").strip() or None,
+            "prezzo": None,
+        }
+        if item.get("prezzo") is not None:
+            try:
+                abb["prezzo"] = int(float(item["prezzo"]))
+            except (ValueError, TypeError):
+                pass
+        result.append(abb)
+    return result
+
+
+def build_menu_piatti_ids(piatti: list[dict], menu_id: str) -> list[str]:
+    """Costruisce la lista piatti_ids per un menu dalle categorie dei piatti."""
+    cat_map = {
+        "esprit": {"menu_esprit", "menu_esprit_terroir"},
+        "terroir": {"menu_terroir", "menu_esprit_terroir"},
+    }
+    cats = cat_map.get(menu_id, set())
+    if not cats:
+        return []
+    return [p["id"] for p in piatti if p.get("categoria") in cats]
+
+
+def extract_from_pdf(pdf_bytes: bytes, api_key: str) -> dict:
+    """Pipeline completa: PDF -> immagini -> Claude Vision -> piatti + menu + abbinamenti."""
     from anthropic import Anthropic
 
     images_b64 = pdf_to_base64_images(pdf_bytes, dpi=200)
     if not images_b64:
         raise ValueError("Il PDF non contiene pagine.")
 
-    # Costruisci messaggio con tutte le immagini
     content = []
     for b64 in images_b64:
         content.append({
@@ -143,11 +210,10 @@ def extract_piatti_from_pdf(pdf_bytes: bytes, api_key: str) -> list[dict]:
     client = Anthropic(api_key=api_key)
     response = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=4096,
+        max_tokens=8192,
         messages=[{"role": "user", "content": content}],
     )
 
-    # Estrai testo dalla risposta
     raw_text = response.content[0].text.strip()
 
     # Rimuovi eventuale markdown fence
@@ -156,13 +222,39 @@ def extract_piatti_from_pdf(pdf_bytes: bytes, api_key: str) -> list[dict]:
         raw_text = re.sub(r"\n?```$", "", raw_text)
         raw_text = raw_text.strip()
 
-    # Parse JSON
     try:
-        piatti_raw = json.loads(raw_text)
+        data = json.loads(raw_text)
     except json.JSONDecodeError as e:
         raise ValueError(f"Claude non ha restituito JSON valido: {e}\n\nRisposta:\n{raw_text[:500]}")
 
-    if not isinstance(piatti_raw, list):
-        raise ValueError(f"Atteso JSON array, ricevuto: {type(piatti_raw).__name__}")
+    if isinstance(data, list):
+        # Backward compat: solo piatti
+        return {
+            "piatti": _validate_piatti(data),
+            "menu_degustazione": [],
+            "abbinamenti_vini": [],
+        }
 
-    return _validate_piatti(piatti_raw)
+    if not isinstance(data, dict):
+        raise ValueError(f"Atteso JSON object, ricevuto: {type(data).__name__}")
+
+    piatti = _validate_piatti(data.get("piatti", []))
+    menus = _validate_menus(data.get("menu_degustazione", []))
+    abbinamenti = _validate_abbinamenti(data.get("abbinamenti_vini", []))
+
+    # Auto-assegna piatti_ids ai menu
+    for m in menus:
+        m["piatti_ids"] = build_menu_piatti_ids(piatti, m["id"])
+
+    return {
+        "piatti": piatti,
+        "menu_degustazione": menus,
+        "abbinamenti_vini": abbinamenti,
+    }
+
+
+# Backward compat
+def extract_piatti_from_pdf(pdf_bytes: bytes, api_key: str) -> list[dict]:
+    """Legacy wrapper."""
+    result = extract_from_pdf(pdf_bytes, api_key)
+    return result["piatti"]
