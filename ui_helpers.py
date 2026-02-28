@@ -170,5 +170,17 @@ hr {
 [data-testid="stFormSubmitButton"] > button {
     border-radius: 8px !important;
 }
+
+/* ── Icon-only action buttons (arrows, delete) — center in column ── */
+[data-testid="stHorizontalBlock"] [data-testid="stColumn"] .stButton > button {
+    min-width: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+[data-testid="stVerticalBlock"][data-has-border="true"] [data-testid="stHorizontalBlock"] [data-testid="stColumn"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
 </style>
 """
