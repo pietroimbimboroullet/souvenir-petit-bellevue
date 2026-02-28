@@ -11,13 +11,26 @@ import unicodedata
 import fitz  # PyMuPDF
 
 
-EXTRACTION_PROMPT = """Analizza queste immagini di un menu di ristorante fine dining.
+EXTRACTION_PROMPT = """Analizza queste immagini del menu di un ristorante fine dining.
+Il ristorante propone tipicamente due menu degustazione (es. "Esprit" e "Terroir") piu' piatti alla carta.
+Alcuni piatti possono apparire in ENTRAMBI i menu degustazione, e spesso sono anche ordinabili alla carta.
+
 Restituisci un JSON object con 3 chiavi: "piatti", "menu_degustazione", "abbinamenti_vini".
 
-## PIATTI
-Estrai TUTTI i piatti visibili. Per ogni piatto:
+## PIATTI — REGOLA FONDAMENTALE: NESSUN DUPLICATO
+Ogni piatto deve comparire UNA SOLA VOLTA nella lista, anche se appare in piu' sezioni del menu.
+
+Per capire la categoria, ragiona cosi':
+1. Prima identifica QUALI piatti appartengono al menu "Esprit" e QUALI al menu "Terroir"
+2. Se un piatto appare SOLO nell'Esprit → categoria "menu_esprit"
+3. Se un piatto appare SOLO nel Terroir → categoria "menu_terroir"
+4. Se un piatto appare in ENTRAMBI i menu → categoria "menu_esprit_terroir"
+5. Se un piatto ha un prezzo individuale e non fa parte di nessun menu degustazione → categoria "alla_carta"
+6. Se un piatto fa parte di un menu degustazione MA ha anche un prezzo individuale, metti comunque la categoria del menu e aggiungi il prezzo in "prezzo_carta"
+
+Campi per ogni piatto:
 - "nome_it": nome in italiano (Title Case, non MAIUSCOLO)
-- "ingredienti_it": ingredienti/descrizione in italiano
+- "ingredienti_it": ingredienti/descrizione in italiano (la riga sotto il nome del piatto)
 - "nome_fr": nome in francese (se presente, altrimenti "")
 - "ingredienti_fr": ingredienti in francese (se presente, altrimenti "")
 - "nome_en": nome in inglese (se presente, altrimenti "")
@@ -25,30 +38,24 @@ Estrai TUTTI i piatti visibili. Per ogni piatto:
 - "categoria": una tra "menu_esprit", "menu_terroir", "menu_esprit_terroir", "alla_carta"
 - "prezzo_carta": prezzo numerico se indicato, altrimenti null
 
-Regole categorie:
-- Se il piatto fa parte di un menu degustazione "Esprit" (o simile), usa "menu_esprit"
-- Se fa parte di un menu "Terroir" (o simile), usa "menu_terroir"
-- Se appare in entrambi i menu, usa "menu_esprit_terroir"
-- Se e' alla carta con prezzo proprio, usa "alla_carta"
-- NON includere titoli di sezione, intestazioni, o note a pie' di pagina
+NON includere: titoli di sezione, intestazioni, note a pie' pagina, nomi dei menu stessi.
+L'ordine dei piatti deve seguire la sequenza del pasto: antipasti, primi, secondi, formaggi, dessert.
 
 ## MENU DEGUSTAZIONE
-Estrai i menu degustazione (percorsi a prezzo fisso). Per ogni menu:
-- "id": identificativo snake_case (es. "esprit", "terroir")
+Estrai i percorsi degustazione a prezzo fisso. Per ogni menu:
+- "id": snake_case (es. "esprit", "terroir")
 - "nome": nome del menu
-- "prezzo": prezzo numerico del menu (solo il numero, senza simbolo valuta)
+- "prezzo": prezzo numerico (solo il numero)
 
 ## ABBINAMENTI VINI
-Estrai tutti gli abbinamenti vini / wine pairings proposti. Per ogni abbinamento:
-- "id": identificativo snake_case (es. "abbinamento_esprit_italia", "abbinamento_terroir_vitae")
-- "nome": nome dell'abbinamento (es. "Abbinamenti vini Esprit")
-- "sottotitolo": sottotitolo/descrizione se presente (es. "Quando la Francia e l'Italia parlano...")
-- "menu_riferimento": id del menu a cui si riferisce (es. "esprit" o "terroir")
+Estrai gli abbinamenti vini / wine pairings. Per ogni abbinamento:
+- "id": snake_case (es. "abbinamento_esprit_francia_italia")
+- "nome": nome dell'abbinamento
+- "sottotitolo": sottotitolo/frase descrittiva se presente, altrimenti null
+- "menu_riferimento": id del menu a cui si riferisce ("esprit" o "terroir")
 - "prezzo": prezzo numerico
 
 Rispondi SOLO con il JSON object, senza markdown fences, senza testo aggiuntivo.
-Esempio struttura:
-{"piatti": [...], "menu_degustazione": [...], "abbinamenti_vini": [...]}
 """
 
 
@@ -94,9 +101,25 @@ def _clean_id(raw: str) -> str:
     return s
 
 
+def _merge_categoria(cat_a: str, cat_b: str) -> str:
+    """Unisce due categorie: se un piatto e' in esprit E terroir -> esprit_terroir."""
+    cats = {cat_a, cat_b}
+    if "menu_esprit_terroir" in cats:
+        return "menu_esprit_terroir"
+    if "menu_esprit" in cats and "menu_terroir" in cats:
+        return "menu_esprit_terroir"
+    # Stessa categoria o una e' alla_carta
+    if "menu_esprit" in cats:
+        return "menu_esprit"
+    if "menu_terroir" in cats:
+        return "menu_terroir"
+    return cat_a
+
+
 def _validate_piatti(raw: list) -> list[dict]:
-    """Valida e normalizza la lista di piatti estratti."""
+    """Valida, normalizza e deduplica la lista di piatti estratti."""
     VALID_CATS = {"menu_esprit", "menu_terroir", "menu_esprit_terroir", "alla_carta"}
+    seen = {}  # id -> index in result
     result = []
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
@@ -104,25 +127,45 @@ def _validate_piatti(raw: list) -> list[dict]:
         nome_it = (item.get("nome_it") or "").strip()
         if not nome_it:
             continue
+
+        pid = _clean_id(nome_it)
+        cat = item.get("categoria", "alla_carta")
+        if cat not in VALID_CATS:
+            cat = "alla_carta"
+
+        prezzo = item.get("prezzo_carta")
+        if prezzo is not None:
+            try:
+                prezzo = int(float(prezzo))
+            except (ValueError, TypeError):
+                prezzo = None
+
+        # Deduplicazione: se gia' visto, unisci categoria e prendi prezzo se mancante
+        if pid in seen:
+            existing = result[seen[pid]]
+            existing["categoria"] = _merge_categoria(existing["categoria"], cat)
+            if existing["prezzo_carta"] is None and prezzo is not None:
+                existing["prezzo_carta"] = prezzo
+            # Riempi campi vuoti dal duplicato
+            for lang in ["fr", "en"]:
+                for field in [f"nome_{lang}", f"ingredienti_{lang}"]:
+                    if not existing.get(field) and (item.get(field) or "").strip():
+                        existing[field] = (item[field]).strip()
+            continue
+
         piatto = {
-            "id": _clean_id(nome_it),
+            "id": pid,
             "nome_it": nome_it,
             "ingredienti_it": (item.get("ingredienti_it") or "").strip(),
             "nome_fr": (item.get("nome_fr") or "").strip(),
             "ingredienti_fr": (item.get("ingredienti_fr") or "").strip(),
             "nome_en": (item.get("nome_en") or "").strip(),
             "ingredienti_en": (item.get("ingredienti_en") or "").strip(),
-            "categoria": item.get("categoria", "alla_carta"),
-            "prezzo_carta": item.get("prezzo_carta"),
-            "ordine": i,
+            "categoria": cat,
+            "prezzo_carta": prezzo,
+            "ordine": len(result),
         }
-        if piatto["categoria"] not in VALID_CATS:
-            piatto["categoria"] = "alla_carta"
-        if piatto["prezzo_carta"] is not None:
-            try:
-                piatto["prezzo_carta"] = int(float(piatto["prezzo_carta"]))
-            except (ValueError, TypeError):
-                piatto["prezzo_carta"] = None
+        seen[pid] = len(result)
         result.append(piatto)
     return result
 
