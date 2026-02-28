@@ -5,7 +5,6 @@ genera_guide.py — Genera due PDF guida per il progetto Souvenir Petit Bellevue
 Stile: nerd ma con colori pastello eleganti.
 """
 
-import sys
 from pathlib import Path
 from datetime import date
 
@@ -22,8 +21,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 # ── Percorsi ──
-ROOT = Path(r"C:\Users\Pietro\Desktop\Claude\Souvenir Petit Bellevue")
-FONTS_DIR = Path(r"C:\Users\Pietro\AppData\Local\Microsoft\Windows\Fonts")
+ROOT = Path(__file__).resolve().parent.parent
+FONTS_DIR = ROOT / "assets" / "fonts"
 OUTPUT_DIR = ROOT / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
@@ -284,43 +283,23 @@ def genera_guida_tecnica():
         "  Avvia Souvenir.bat"
     ))
 
-    # ── 4. Aggiornare i percorsi ──
-    story.append(Paragraph("4. Aggiornare i percorsi nello script", style_h1))
+    # ── 4. Verificare i percorsi ──
+    story.append(Paragraph("4. Verificare i percorsi", style_h1))
     story.append(accent_line())
     story.append(Paragraph(
-        "Lo script <b>genera_souvenir.py</b> contiene due percorsi assoluti da aggiornare "
-        "se la posizione sul nuovo PC e' diversa.",
+        "Gli script usano <b>percorsi relativi</b> e si adattano automaticamente alla "
+        "posizione della cartella sul nuovo PC. Non e' necessario modificare i file.",
         style_body
     ))
     story.append(Spacer(1, 2*mm))
-    story.append(Paragraph("Apri il file <b>scripts/genera_souvenir.py</b> con un editor di testo e modifica:", style_body))
-    story.append(Spacer(1, 2*mm))
-    story.append(Paragraph("<b>Riga 24</b> — Percorso della cartella del progetto:", style_body_bold))
-    story.append(code(
-        '# DA:<br/>'
-        'ROOT = Path(r"C:\\Users\\Pietro\\Desktop\\Claude\\Souvenir Petit Bellevue")<br/>'
-        '<br/>'
-        '# A (esempio):<br/>'
-        'ROOT = Path(r"C:\\Users\\NUOVO_UTENTE\\Desktop\\Souvenir Petit Bellevue")'
-    ))
-    story.append(Spacer(1, 2*mm))
-    story.append(Paragraph("<b>Riga 29</b> — Percorso dei font Bernhard:", style_body_bold))
-    story.append(code(
-        '# DA:<br/>'
-        'FONTS_DIR = Path(r"C:\\Users\\Pietro\\AppData\\Local\\Microsoft\\Windows\\Fonts")<br/>'
-        '<br/>'
-        '# A (esempio, se installati "per tutti gli utenti"):<br/>'
-        'FONTS_DIR = Path(r"C:\\Windows\\Fonts")'
-    ))
-    story.append(warn(
-        "Il percorso dei font dipende da come sono stati installati. "
-        'Se installati con "Installa per tutti gli utenti", si trovano in <b>C:\\Windows\\Fonts</b>. '
-        "Se installati solo per l'utente corrente, si trovano in "
-        "<b>%LOCALAPPDATA%\\Microsoft\\Windows\\Fonts</b> (sostituire %LOCALAPPDATA% col percorso reale)."
+    story.append(Paragraph(
+        "I font Bernhard Modern sono inclusi nella cartella <b>assets/fonts/</b> del progetto. "
+        "Non serve installarli nel sistema.",
+        style_body
     ))
     story.append(tip(
-        "Per trovare il percorso esatto: cerca uno dei file .ttf con Esplora File, "
-        "clic destro &gt; Proprieta' e annota il percorso della cartella."
+        "Se l'app non trova i font, verificare che la cartella <b>assets/fonts/</b> "
+        "contenga i file .ttf (Bernhard Modern BT, Italic, Bold, Bold Italic)."
     ))
 
     # ── 5. Installare le dipendenze Python ──

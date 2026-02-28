@@ -3,7 +3,7 @@ app.py — Interfaccia Streamlit per Souvenir Petit Bellevue
 Tavolo-centrica: 5 tavoli sempre visibili, configurazione ospiti inline.
 """
 
-import io, json, zipfile, sys
+import io, zipfile, sys
 from pathlib import Path
 from datetime import date
 
@@ -159,7 +159,10 @@ if btn_genera:
                     o["tipo_menu"], o["piatti_csv"], output_path=out_path,
                     numero_ospite=o["numero_ospite"],
                 )
-                pdfs.append((label, fname, pdf_bytes))
+                if pdf_bytes:
+                    pdfs.append((label, fname, pdf_bytes))
+                else:
+                    st.error(f"{label}: generazione fallita (nessun output)")
             except Exception as e:
                 st.error(f"{label}: {e}")
 

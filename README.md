@@ -26,12 +26,16 @@ L'interfaccia permette di configurare fino a 5 tavoli con i rispettivi ospiti, s
 
 ```
 Souvenir Petit Bellevue/
-├── assets/           # Font (Bellevue.ttf)
-├── database/         # Database dei piatti (menu_database.json)
-├── input/            # File Excel con gli ordini (template_input.xlsx)
-├── output/           # PDF generati
-├── scripts/          # genera_souvenir.py
-├── app.py            # Interfaccia Streamlit
+├── assets/              # Font Bellevue.ttf + fonts/ (Bernhard Modern)
+├── database/            # Fallback locale (menu_database.json)
+├── input/               # File Excel per CLI
+├── output/              # PDF generati
+├── pages/               # Pagine Streamlit (Gestione Menu)
+├── scripts/             # genera_souvenir.py, genera_guide.py
+├── .streamlit/          # config.toml (tema)
+├── app.py               # Interfaccia Streamlit principale
+├── supabase_utils.py    # Client Supabase + CRUD
+├── pdf_import.py        # Import menu da PDF via Claude Vision
 ├── Sfondo souvenir.pdf  # Sfondo A4 landscape (2 pagine)
 ├── Riga rossa.pdf       # Separatore decorativo tra piatti
 └── requirements.txt
@@ -39,11 +43,13 @@ Souvenir Petit Bellevue/
 
 ## Menu disponibili
 
-| Menu | Piatti |
-|------|--------|
-| **Esprit** | animelle, spaghettoni_martelli, piccione, carrello_formaggi, nashi, luna_rossa |
-| **Terroir** | sedano_rapa, risotto_cavolo_viola, zuppa_del_bosco, carrello_formaggi, nashi, topinambur |
-| **Carta** | Selezione libera dal database (campo `piatti` nell'Excel o multiselect nell'interfaccia) |
+I menu degustazione e i relativi piatti sono gestiti dinamicamente tramite il database (Supabase o JSON locale). La composizione dei menu si configura dalla pagina **Gestione Menu** dell'app.
+
+| Menu | Descrizione |
+|------|-------------|
+| **Esprit** | Menu degustazione — composizione da database |
+| **Terroir** | Menu degustazione — composizione da database |
+| **Carta** | Selezione libera dal database (multiselect nell'interfaccia) |
 
 ## Formato input Excel
 
@@ -73,14 +79,15 @@ Il file Excel deve contenere un foglio **"ORDINI"** con le seguenti colonne:
 
 ## Posizionamento piatti
 
-- **5+ piatti** (esprit, terroir): dall'alto, partendo da `P2_DISHES_START_Y` (490pt)
-- **1-4 piatti** (carta): centrati verticalmente nell'area disponibile
-- Gap tra piatti: capped a `DISH_STD_GAP` (~54pt, riferimento 7 piatti)
+- Gap naturale distribuito uniformemente, con cap a 70pt (~25mm)
+- Gruppo centrato leggermente sopra il centro visivo (40/60)
+- Per 6 piatti (menu degustazione): riempie l'intera area disponibile
+- Per pochi piatti (carta): centrato con spaziatura elegante
 
 ## Font
 
 - **Bellevue** — titoli e data (`assets/Bellevue.ttf`). Non include apostrofo: fallback BernhardMod per il titolo vini in inglese
-- **Bernhard Modern BT** — famiglia serif (regular, italic, bold, bold italic) per testi e descrizioni. Font di sistema in `%LOCALAPPDATA%\Microsoft\Windows\Fonts`
+- **Bernhard Modern BT** — famiglia serif (regular, italic, bold, bold italic) per testi e descrizioni (`assets/fonts/`)
 
 ## Zone proibite — decorazioni pagina 2
 
@@ -102,4 +109,7 @@ PyMuPDF
 Pillow
 numpy
 openpyxl
+pandas
+supabase
+anthropic
 ```
