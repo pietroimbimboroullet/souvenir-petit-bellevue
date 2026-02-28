@@ -3,4 +3,7 @@ primaryColor = "#6B7F6B"
 backgroundColor = "#FAFAF8"
 secondaryBackgroundColor = "#F0F0EC"
 textColor = "#2D2D2D"
-font = "monospace"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"

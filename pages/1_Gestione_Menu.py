@@ -5,6 +5,7 @@ Fallback read-only da JSON se Supabase non configurato.
 
 import streamlit as st
 import pandas as pd
+from ui_helpers import apply_ui
 from supabase_utils import (
     is_supabase_active, load_piatti, load_menu_degustazione, load_team,
     save_piatto, update_piatto, delete_piatto, delete_all_piatti, reorder_piatti,
@@ -15,11 +16,16 @@ from supabase_utils import (
 from pdf_import import extract_from_pdf, pdf_to_preview_images
 
 st.set_page_config(page_title="Gestione Menu", layout="wide")
+apply_ui()
 st.title("Gestione Menu")
+st.markdown('<p class="title-caption">Piatti, menu degustazione e team</p>', unsafe_allow_html=True)
 
 supabase_ok = is_supabase_active()
-if not supabase_ok:
-    st.warning("Supabase non configurato — modalita' sola lettura (dati da JSON locale)")
+with st.sidebar:
+    if supabase_ok:
+        st.success("Supabase connesso", icon=":material/cloud_done:")
+    else:
+        st.warning("Sola lettura (JSON locale)", icon=":material/cloud_off:")
 
 # ══════════════════════════════════════════════════════════════
 # DATI

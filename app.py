@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from genera_souvenir import (
     genera_souvenir, safe_filename, get_db, set_db, OUTPUT_DIR,
 )
+from ui_helpers import apply_ui
 
 # ── Caricamento DB (Supabase con fallback JSON) ──
 try:
@@ -48,7 +49,9 @@ PIATTI_IDS = list(PIATTI_MAP.keys())
 
 # ══════════════════════════════════════════════════════════════
 st.set_page_config(page_title="Souvenir Petit Bellevue", layout="wide")
+apply_ui()
 st.title("Souvenir Petit Bellevue")
+st.markdown('<p class="title-caption">Generatore souvenir per Le Petit Bellevue</p>', unsafe_allow_html=True)
 
 # ── Sidebar ──
 with st.sidebar:
