@@ -238,6 +238,15 @@ with tab_import:
 
                                 saved_piatti = 0
                                 for ordine_idx, (_, row) in enumerate(valid_rows.iterrows()):
+                                    # prezzo_carta: gestisci NaN, stringhe vuote, etc.
+                                    prezzo_raw = row.get("prezzo_carta")
+                                    prezzo_val = None
+                                    if pd.notna(prezzo_raw) and str(prezzo_raw).strip():
+                                        try:
+                                            prezzo_val = int(float(prezzo_raw))
+                                        except (ValueError, TypeError):
+                                            prezzo_val = str(prezzo_raw).strip()
+
                                     piatto = {
                                         "id": str(row["id"]).strip(),
                                         "nome_it": str(row["nome_it"]).strip(),
@@ -246,7 +255,8 @@ with tab_import:
                                         "ingredienti_fr": str(row.get("ingredienti_fr", "")).strip(),
                                         "nome_en": str(row.get("nome_en", "")).strip(),
                                         "ingredienti_en": str(row.get("ingredienti_en", "")).strip(),
-                                        "prezzo_carta": int(row["prezzo_carta"]) if pd.notna(row.get("prezzo_carta")) else None,
+                                        "categoria": "alla_carta",
+                                        "prezzo_carta": prezzo_val,
                                         "ordine": ordine_idx,
                                     }
                                     if save_piatto(piatto):
@@ -315,6 +325,7 @@ with tab_piatti:
                             "nome_it": new_nome_it, "ingredienti_it": new_ingr_it,
                             "nome_fr": new_nome_fr, "ingredienti_fr": new_ingr_fr,
                             "nome_en": new_nome_en, "ingredienti_en": new_ingr_en,
+                            "categoria": "alla_carta",
                             "prezzo_carta": new_prezzo if new_prezzo else None,
                             "ordine": int(new_ordine),
                         }
