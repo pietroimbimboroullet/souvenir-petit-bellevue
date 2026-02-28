@@ -463,9 +463,27 @@ def make_text_block(nome, desc, max_width):
         "has_desc": len(dl) > 0,
     }
 
+def _position_blocks_from_y(blocks, gap_h, top_y, end_y):
+    """Posiziona blocchi partendo da top_y verso il basso."""
+    N = len(blocks)
+    if N == 0:
+        return
+    total_content = sum(b["block_h"] for b in blocks)
+    gap_count = N - 1 if N > 1 else 1
+    group_h = total_content + (gap_count * gap_h if N > 1 else 0)
+    y = top_y
+    if y - group_h < end_y:
+        y = end_y + group_h
+    for i, b in enumerate(blocks):
+        b["y_start"] = y
+        b["y_end"] = y - b["block_h"]
+        if i < N - 1:
+            y = b["y_end"] - gap_h
+
+
 def position_blocks_vertically(blocks, gap_h, start_y, end_y, threshold, ref_y):
     """Posiziona blocchi verticalmente con logica di raggruppamento.
-    N <= threshold: partenza da ref_y (1/3 dall'alto).
+    N <= threshold: partenza da ref_y.
     N > threshold: gruppo centrato nell'area.
     Imposta y_start e y_end su ogni blocco."""
     N = len(blocks)
@@ -751,16 +769,23 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
 
     N = len(dish_blocks)
 
-    # Posizionamento piatti: gap capped + raggruppamento
-    # Menu pieni (5+): dall'alto. Carta con pochi piatti: centrato.
+    # Posizionamento piatti — logica adattiva
     total_available = P2_DISHES_START_Y - P2_DISHES_END_Y
     total_content = sum(b["block_h"] for b in dish_blocks)
     gap_count = N - 1 if N > 1 else 1
-    gap_height = min(DISH_STD_GAP, (total_available - total_content) / gap_count)
-    pos_threshold = 99 if N >= 5 else 0
-    position_blocks_vertically(dish_blocks, gap_height,
-                               P2_DISHES_START_Y, P2_DISHES_END_Y,
-                               pos_threshold, P2_DISHES_START_Y)
+
+    if N >= 5:
+        # Menu degustazione: distribuisci uniformemente su TUTTO lo spazio
+        gap_height = (total_available - total_content) / gap_count
+        position_blocks_vertically(dish_blocks, gap_height,
+                                   P2_DISHES_START_Y, P2_DISHES_END_Y,
+                                   0, P2_DISHES_START_Y)
+    else:
+        # Pochi piatti (carta): posiziona a 1/3 dall'alto
+        gap_height = min(DISH_STD_GAP, (total_available - total_content) / gap_count)
+        group_h = total_content + (gap_count * gap_height if N > 1 else 0)
+        y_top = P2_DISHES_START_Y - (total_available - group_h) / 3
+        _position_blocks_from_y(dish_blocks, gap_height, y_top, P2_DISHES_END_Y)
 
     # Re-wrap iterativo: ri-splitta SOLO se il testo non entra nello
     # spazio fisico tra decorazione e piega (fit_w). Non re-wrappare
@@ -785,12 +810,18 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
             break
         # Riposiziona dopo re-wrap
         total_content = sum(b["block_h"] for b in dish_blocks)
-        gap_height = min(DISH_STD_GAP, (total_available - total_content) / gap_count)
-        position_blocks_vertically(dish_blocks, gap_height,
-                                   P2_DISHES_START_Y, P2_DISHES_END_Y,
-                                   pos_threshold, P2_DISHES_START_Y)
+        if N >= 5:
+            gap_height = (total_available - total_content) / gap_count
+            position_blocks_vertically(dish_blocks, gap_height,
+                                       P2_DISHES_START_Y, P2_DISHES_END_Y,
+                                       0, P2_DISHES_START_Y)
+        else:
+            gap_height = min(DISH_STD_GAP, (total_available - total_content) / gap_count)
+            group_h = total_content + (gap_count * gap_height if N > 1 else 0)
+            y_top = P2_DISHES_START_Y - (total_available - group_h) / 3
+            _position_blocks_from_y(dish_blocks, gap_height, y_top, P2_DISHES_END_Y)
 
-    dish_mode = "dall'alto" if N >= 5 else "centrato"
+    dish_mode = "distribuito" if N >= 5 else "1/3 dall'alto"
     print(f"  Piatti: {N} blocchi ({dish_mode}), gap={gap_height:.1f}pt")
 
     # Raccogli elementi piatti + separatori
