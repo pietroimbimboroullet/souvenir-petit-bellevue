@@ -718,13 +718,11 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
             "fromager": {"it": "il Maître Fromager", "fr": "le Maître Fromager", "en": "the Maître Fromager"},
         }
 
-        # Membri team
+        # Membri team — nome in regular, ruolo in italico
         y = TEAM_FIRST_Y
-        c1.setFont("BernhardMod-It", TEAM_BODY_SZ)
         for member in team_members:
             nome = member.get("nome", "")
             ruolo = member.get("ruolo", "")
-            # Cerca un'etichetta localizzata per il ruolo
             ruolo_lower = ruolo.lower()
             label = None
             for key, labels in role_labels.items():
@@ -732,11 +730,22 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
                     label = labels.get(lingua, labels["it"])
                     break
             if label is None:
-                # Ruolo non mappato: usa il testo originale con articolo
                 label = ruolo if ruolo else ""
-            line = f"{nome}, {label}" if label else nome
-            tw = pdfmetrics.stringWidth(line, "BernhardMod-It", TEAM_BODY_SZ)
-            c1.drawString(team_cx - tw / 2, y, line)
+
+            # Calcola larghezza totale per centrare
+            nome_part = f"{nome}, " if label else nome
+            w_nome = pdfmetrics.stringWidth(nome_part, "BernhardMod", TEAM_BODY_SZ)
+            w_label = pdfmetrics.stringWidth(label, "BernhardMod-It", TEAM_BODY_SZ) if label else 0
+            total_w = w_nome + w_label
+            x = team_cx - total_w / 2
+
+            # Disegna nome (regular)
+            c1.setFont("BernhardMod", TEAM_BODY_SZ)
+            c1.drawString(x, y, nome_part)
+            # Disegna ruolo (italico)
+            if label:
+                c1.setFont("BernhardMod-It", TEAM_BODY_SZ)
+                c1.drawString(x + w_nome, y, label)
             y -= TEAM_LINE_H
 
         # Footer: "e tutti i loro collaboratori"
