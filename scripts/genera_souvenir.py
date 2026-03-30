@@ -853,8 +853,15 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
           f"y={ruled_y_start:.0f}..{ruled_y_end:.0f})")
 
     # ── Firme Chef e Sommelier — metà destra, sotto le righe ──
+    # Legge nomi dal DB (team), fallback ai valori di default
     chef_name = "Niccolò de Riu"
     somm_name = "Rino Billia"
+    for member in db.get("team", []):
+        ruolo = (member.get("ruolo") or "").lower()
+        if "chef" in ruolo and "pasticc" not in ruolo:
+            chef_name = member.get("nome", chef_name)
+        elif "sommelier" in ruolo:
+            somm_name = member.get("nome", somm_name)
     chef_titles = {"it": "Lo Chef", "fr": "Le Chef", "en": "The Chef"}
     somm_titles = {"it": "Il Sommelier", "fr": "Le Sommelier", "en": "The Sommelier"}
     chef_title = chef_titles.get(lingua, chef_titles["it"])

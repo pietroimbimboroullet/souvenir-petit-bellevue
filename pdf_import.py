@@ -153,9 +153,13 @@ def _smart_capitalize(text: str, lang: str = "it") -> str:
     if len(alpha_words) >= 3 and cap_count >= len(alpha_words) * 0.7:
         title_like = True
     elif len(alpha_words) == 2:
-        # 2 parole: solo se la prima è articolo/prep e la seconda è capitalizzata
+        # 2 parole entrambe capitalizzate → Title Case (es. "Luna Rossa").
+        # Se la prima è articolo/prep → sicuramente Title Case.
+        # Altrimenti, se entrambe sono "Parola Parola" → tratta come Title Case.
         first_clean = re.split(r"['\u2019]", alpha_words[0])[0].lower()
-        if first_clean in stop and alpha_words[1][0].isupper():
+        w2 = alpha_words[1]
+        w2_is_title_cased = w2[0].isupper() and (len(w2) == 1 or w2[1:].islower())
+        if w2_is_title_cased and alpha_words[0][0].isupper():
             title_like = True
 
     # Caso speciale: parola con apostrofo tipo "L'Animella" (1 token)
@@ -208,6 +212,8 @@ def _smart_capitalize_ingredients(text: str) -> str:
 
 def _clean_id(raw: str) -> str:
     """Normalizza un nome piatto in ID snake_case senza accenti."""
+    # Normalizza apostrofi curvi → dritti prima della conversione ASCII
+    raw = raw.replace("\u2019", "'").replace("\u2018", "'")
     nfkd = unicodedata.normalize("NFKD", raw)
     ascii_str = nfkd.encode("ascii", "ignore").decode("ascii")
     s = ascii_str.lower().strip()
