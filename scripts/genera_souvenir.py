@@ -198,6 +198,18 @@ CLR_DATE = (0.40, 0.26, 0.18)              # marrone/terra
 DATE_FONT = "Bellevue"
 DATE_SIZE = 14.5
 
+# Team block (copertina, metà destra, sotto la descrizione)
+CLR_TEAM       = (126/255, 93/255, 86/255)   # RGB(126,93,86) bruno caldo
+TEAM_HEADER_SZ = 13                            # "Un'esperienza a cura di:" in Bellevue
+TEAM_BODY_SZ   = 9.5                           # nomi team in BernhardMod-It
+TEAM_CENTER_X  = None                          # impostato dopo half (= P1_DATE_X)
+TEAM_COVER_Y1  = 70                            # bottom del rettangolo bianco (sopra logo)
+TEAM_COVER_Y2  = 185                           # top del rettangolo bianco (sopra separatore)
+TEAM_HEADER_Y  = 173                           # baseline "Un'esperienza a cura di:"
+TEAM_FIRST_Y   = 154                           # baseline primo membro
+TEAM_LINE_H    = 14                            # interlinea tra membri
+TEAM_FOOTER_Y  = None                          # calcolato dinamicamente
+
 CLR_MENU_TITLE     = (144/255, 154/255, 135/255)  # RGB(144,154,135) verde salvia
 MENU_TITLE_OPACITY = 0.6
 MENU_TITLE_SIZE    = 64
@@ -666,6 +678,78 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
     c1.setFillColorRGB(*CLR_DATE)
     c1.setFont(DATE_FONT, DATE_SIZE)
     c1.drawCentredString(P1_DATE_X, DATE_BASELINE, date_text)
+
+    # ── Team block dinamico (copertina, metà destra) ──
+    # Copre il blocco nomi originale nello sfondo e li rigenera dal DB.
+    team_cx = P1_DATE_X  # ~631pt — centro della metà destra
+    team_members = db.get("team", [])
+    if team_members:
+        # Rettangolo bianco per coprire il testo originale
+        c1.setFillColorRGB(1, 1, 1)
+        c1.rect(team_cx - 130, TEAM_COVER_Y1, 260, TEAM_COVER_Y2 - TEAM_COVER_Y1,
+                stroke=0, fill=1)
+
+        c1.setFillColorRGB(*CLR_TEAM)
+
+        # Header: "Un'esperienza a cura di:" in Bellevue 13pt
+        # Bellevue non ha apostrofo → segmenti con fallback BernhardMod
+        header_text = "Un\u2019esperienza a cura di:"
+        h_parts = header_text.split("\u2019")
+        segs = []
+        for i, part in enumerate(h_parts):
+            if i > 0:
+                segs.append(("\u2019", "BernhardMod-It", TEAM_HEADER_SZ))
+            if part:
+                segs.append((part, "Bellevue", TEAM_HEADER_SZ))
+        h_total_w = sum(pdfmetrics.stringWidth(s, f, sz) for s, f, sz in segs)
+        hx = team_cx - h_total_w / 2
+        for seg_text, seg_font, seg_sz in segs:
+            c1.setFont(seg_font, seg_sz)
+            c1.drawString(hx, TEAM_HEADER_Y, seg_text)
+            hx += pdfmetrics.stringWidth(seg_text, seg_font, seg_sz)
+
+        # Ruoli localizzati per la copertina
+        role_labels = {
+            "chef di cucina": {"it": "lo Chef di cucina", "fr": "le Chef de cuisine", "en": "the Chef"},
+            "capo pasticcere": {"it": "il capo pasticcere", "fr": "le Chef pâtissier", "en": "the Pastry Chef"},
+            "maître": {"it": "il Maître d'hôtel", "fr": "le Maître d'hôtel", "en": "the Maître d'hôtel"},
+            "maitre": {"it": "il Maître d'hôtel", "fr": "le Maître d'hôtel", "en": "the Maître d'hôtel"},
+            "sommelier": {"it": "il Sommelier", "fr": "le Sommelier", "en": "the Sommelier"},
+            "fromager": {"it": "il Maître Fromager", "fr": "le Maître Fromager", "en": "the Maître Fromager"},
+        }
+
+        # Membri team
+        y = TEAM_FIRST_Y
+        c1.setFont("BernhardMod-It", TEAM_BODY_SZ)
+        for member in team_members:
+            nome = member.get("nome", "")
+            ruolo = member.get("ruolo", "")
+            # Cerca un'etichetta localizzata per il ruolo
+            ruolo_lower = ruolo.lower()
+            label = None
+            for key, labels in role_labels.items():
+                if key in ruolo_lower:
+                    label = labels.get(lingua, labels["it"])
+                    break
+            if label is None:
+                # Ruolo non mappato: usa il testo originale con articolo
+                label = ruolo if ruolo else ""
+            line = f"{nome}, {label}" if label else nome
+            tw = pdfmetrics.stringWidth(line, "BernhardMod-It", TEAM_BODY_SZ)
+            c1.drawString(team_cx - tw / 2, y, line)
+            y -= TEAM_LINE_H
+
+        # Footer: "e tutti i loro collaboratori"
+        footer_labels = {
+            "it": "e tutti i loro collaboratori",
+            "fr": "et tous leurs collaborateurs",
+            "en": "and all their collaborators",
+        }
+        footer = footer_labels.get(lingua, footer_labels["it"])
+        y -= TEAM_LINE_H * 0.3  # piccolo extra gap prima del footer
+        c1.setFont("BernhardMod-It", TEAM_BODY_SZ)
+        ftw = pdfmetrics.stringWidth(footer, "BernhardMod-It", TEAM_BODY_SZ)
+        c1.drawString(team_cx - ftw / 2, y, footer)
 
     # Numero tavolo e ospite — retro (metà sinistra), basso a sinistra, verticale
     if numero_ospite is not None:
