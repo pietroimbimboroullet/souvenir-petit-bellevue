@@ -9,7 +9,8 @@
       "nome_en": "Sweetbreads",
       "ingredienti_en": "polenta, pumpkin and amaranth",
       "categoria": "menu_esprit",
-      "prezzo_carta": 40
+      "prezzo_carta": 40,
+      "ordine": 0
     },
     {
       "id": "spaghettoni_martelli",
@@ -20,62 +21,68 @@
       "nome_en": "Martelli spaghettoni",
       "ingredienti_en": "herring, spring onion, pecorino and caviar",
       "categoria": "menu_esprit",
-      "prezzo_carta": 40
+      "prezzo_carta": 40,
+      "ordine": 1
     },
     {
       "id": "piccione",
       "nome_it": "Il piccione",
       "ingredienti_it": "coscia, petto, fegato e carote",
       "nome_fr": "Pigeon",
-      "ingredienti_fr": "cuisse, supr\u00eame, foie et carottes",
+      "ingredienti_fr": "cuisse, suprême, foie et carottes",
       "nome_en": "Pigeon",
       "ingredienti_en": "leg, breast, liver and carrots",
       "categoria": "menu_esprit",
-      "prezzo_carta": 58
+      "prezzo_carta": 58,
+      "ordine": 2
     },
     {
       "id": "carrello_formaggi",
       "nome_it": "Il carrello dei formaggi italiani",
       "ingredienti_it": "affinati in cantina da Roberto",
       "nome_fr": "Chariot de fromages italiens",
-      "ingredienti_fr": "affin\u00e9s en cave par Roberto",
+      "ingredienti_fr": "affinés en cave par Roberto",
       "nome_en": "Italian cheese trolley",
       "ingredienti_en": "aged by Roberto",
       "categoria": "menu_esprit_terroir",
-      "prezzo_carta": "da 10 a 42"
+      "prezzo_carta": "da 10 a 42",
+      "ordine": 3
     },
     {
       "id": "luna_rossa",
       "nome_it": "Luna rossa",
       "ingredienti_it": "mela rossa, rosa, meringa al lampone, noci pecan e rapa rossa",
       "nome_fr": "Lune rouge",
-      "ingredienti_fr": "pomme rouge, rose, meringue \u00e0 la framboise, noix de p\u00e9can et betterave",
+      "ingredienti_fr": "pomme rouge, rose, meringue à la framboise, noix de pécan et betterave",
       "nome_en": "Red moon",
       "ingredienti_en": "red apple, rose, raspberry meringue, pecans and beetroot",
       "categoria": "menu_esprit",
-      "prezzo_carta": 28
+      "prezzo_carta": 28,
+      "ordine": 4
     },
     {
       "id": "sedano_rapa",
       "nome_it": "Il sedano rapa",
       "ingredienti_it": "grano saraceno, latte, melagrana e toma",
-      "nome_fr": "C\u00e9leri-rave",
+      "nome_fr": "Céleri-rave",
       "ingredienti_fr": "sarrasin, lait, grenade et tomme",
       "nome_en": "Celeriac",
       "ingredienti_en": "buckwheat, milk, pomegranate and toma cheese",
       "categoria": "menu_terroir",
-      "prezzo_carta": 34
+      "prezzo_carta": 34,
+      "ordine": 5
     },
     {
       "id": "risotto_cavolo_viola",
       "nome_it": "Il risotto al cavolo viola",
       "ingredienti_it": "ristretto vegetale, nocciole e yogurt di capra",
       "nome_fr": "Risotto au chou rouge",
-      "ingredienti_fr": "jus v\u00e9g\u00e9tal, noisettes et yaourt de ch\u00e8vre",
+      "ingredienti_fr": "jus végétal, noisettes et yaourt de chèvre",
       "nome_en": "Risotto",
       "ingredienti_en": "purple cabbage, vegetable reduction, hazelnuts and goat's yogurt",
       "categoria": "menu_terroir",
-      "prezzo_carta": 38
+      "prezzo_carta": 38,
+      "ordine": 6
     },
     {
       "id": "zuppa_del_bosco",
@@ -86,40 +93,44 @@
       "nome_en": "Forest soup",
       "ingredienti_en": "mushrooms, Bleu d'Aoste cheese and pine",
       "categoria": "menu_terroir",
-      "prezzo_carta": 52
+      "prezzo_carta": 52,
+      "ordine": 7
     },
     {
       "id": "topinambur",
       "nome_it": "Topinambur",
       "ingredienti_it": "castagne, cocco, carota, pepe lungo e liquirizia",
       "nome_fr": "Topinambour",
-      "ingredienti_fr": "ch\u00e2taignes, coco, carotte, poivre long et r\u00e9glisse",
+      "ingredienti_fr": "châtaignes, coco, carotte, poivre long et réglisse",
       "nome_en": "Jerusalem artichoke",
       "ingredienti_en": "chestnuts, coconut, carrot, long pepper and liquorice",
       "categoria": "menu_terroir",
-      "prezzo_carta": 28
+      "prezzo_carta": 28,
+      "ordine": 8
     },
     {
       "id": "salmerino",
       "nome_it": "Il salmerino di Lillaz",
       "ingredienti_it": "burro, achillea e pino mugo",
       "nome_fr": "Omble chevallier de Lillaz",
-      "ingredienti_fr": "beurre, achill\u00e9e et pin",
+      "ingredienti_fr": "beurre, achillée et pin",
       "nome_en": "Lillaz char",
       "ingredienti_en": "butter, yarrow and pine",
       "categoria": "alla_carta",
-      "prezzo_carta": 38
+      "prezzo_carta": 38,
+      "ordine": 9
     },
     {
       "id": "raviolini_faraona",
       "nome_it": "I raviolini di faraona",
-      "ingredienti_it": "Vin Santo e limone, consomm\u00e9 di montagna",
+      "ingredienti_it": "Vin Santo e limone, consommé di montagna",
       "nome_fr": "Raviolini de pintade",
-      "ingredienti_fr": "au Vin Santo et citron, consomm\u00e9 de montagne",
+      "ingredienti_fr": "au Vin Santo et citron, consommé de montagne",
       "nome_en": "Guinea fowl raviolini",
-      "ingredienti_en": "with Vin Santo and lemon, mountain consomm\u00e9",
+      "ingredienti_en": "with Vin Santo and lemon, mountain consommé",
       "categoria": "alla_carta",
-      "prezzo_carta": 42
+      "prezzo_carta": 42,
+      "ordine": 10
     },
     {
       "id": "storione",
@@ -130,7 +141,8 @@
       "nome_en": "Sturgeon",
       "ingredienti_en": "saffron, black cabbage, fennel and steamed bun",
       "categoria": "alla_carta",
-      "prezzo_carta": 48
+      "prezzo_carta": 48,
+      "ordine": 11
     },
     {
       "id": "farmville",
@@ -141,7 +153,8 @@
       "nome_en": "Farmville",
       "ingredienti_en": "milk, thyme, marjoram, Chartreuse, rye and hay",
       "categoria": "alla_carta",
-      "prezzo_carta": 28
+      "prezzo_carta": 28,
+      "ordine": 12
     },
     {
       "id": "nashi",
@@ -152,24 +165,41 @@
       "nome_en": "Nashi",
       "ingredienti_en": "thyme, bergamot, black garlic and pine nuts",
       "categoria": "alla_carta",
-      "prezzo_carta": null
+      "prezzo_carta": null,
+      "ordine": 13
     }
   ],
   "menu_degustazione": [
     {
       "id": "esprit",
       "nome": "Esprit",
-      "prezzo": 140
+      "prezzo": 140,
+      "piatti_ids": [
+        "animelle",
+        "spaghettoni_martelli",
+        "piccione",
+        "carrello_formaggi",
+        "nashi",
+        "luna_rossa"
+      ]
     },
     {
       "id": "terroir",
       "nome": "Terroir",
-      "prezzo": 140
+      "prezzo": 140,
+      "piatti_ids": [
+        "sedano_rapa",
+        "risotto_cavolo_viola",
+        "zuppa_del_bosco",
+        "carrello_formaggi",
+        "nashi",
+        "topinambur"
+      ]
     },
     {
       "id": "abbinamento_esprit_francia_italia",
       "nome": "Abbinamenti vini Esprit",
-      "sottotitolo": "Quando la Francia e l'Italia parlano la lingua del gusto\u2026",
+      "sottotitolo": "Quando la Francia e l'Italia parlano la lingua del gusto…",
       "menu_riferimento": "esprit",
       "prezzo": 220
     },
@@ -190,7 +220,7 @@
   ],
   "team": [
     {
-      "nome": "Niccol\u00f2 de Riu",
+      "nome": "Niccolò de Riu",
       "ruolo": "Chef di cucina"
     },
     {
@@ -199,7 +229,7 @@
     },
     {
       "nome": "Pietro Imbimbo Roullet",
-      "ruolo": "Ma\u00eetre d'"
+      "ruolo": "Maître d'"
     },
     {
       "nome": "Rino Billia",

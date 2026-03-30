@@ -56,6 +56,7 @@ st.markdown('<p class="title-caption">Generatore souvenir per Le Petit Bellevue<
 # ── Sidebar ──
 with st.sidebar:
     data_serata = st.date_input("Data serata", value=date.today())
+    mostra_prezzo = st.checkbox("Mostra prezzi nel souvenir", value=False)
     st.divider()
     btn_genera = st.button("Genera tutti i PDF", type="primary", use_container_width=True)
     placeholder_download = st.empty()
@@ -161,6 +162,7 @@ if btn_genera:
                     data_serata, o["tavolo"], o["nome"], o["lingua"],
                     o["tipo_menu"], o["piatti_csv"], output_path=out_path,
                     numero_ospite=o["numero_ospite"],
+                    mostra_prezzo=mostra_prezzo,
                 )
                 if pdf_bytes:
                     pdfs.append((label, fname, pdf_bytes))

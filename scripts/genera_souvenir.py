@@ -361,10 +361,7 @@ def get_dish_name_desc(dish, lang):
 # ══════════════════════════════════════════════════════════════
 # HELPER
 # ══════════════════════════════════════════════════════════════
-MENU_TITLES = {
-    "esprit": "Esprit", "terroir": "Terroir",
-    "carta": {"it": "Il percorso", "fr": "Le parcours", "en": "The journey"},
-}
+MENU_TITLE_CARTA = {"it": "Il percorso", "fr": "Le parcours", "en": "The journey"}
 WINE_TITLES = {"it": "Dal regno di Bacco", "fr": "Du royaume de Bacchus",
                "en": "From Bacchus' world"}
 
@@ -638,34 +635,30 @@ def place_block_separators(blocks, center_x, side="left"):
 
 def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
                     piatti_csv, tipo_vini="", vini_raw="", output_path=None,
-                    numero_ospite=None):
+                    numero_ospite=None, mostra_prezzo=False):
     """Genera un PDF souvenir per un singolo ospite."""
 
     dt = parse_date(data_val)
     lingua = str(lingua).strip().lower()
     date_text = format_date(dt, lingua)
     tipo_menu = str(tipo_menu).strip().lower()
-    # Composizione menu degustazione: leggi piatti_ids dal DB
+    # Composizione menu degustazione: leggi piatti_ids e nome dal DB
     db = get_db()
     menu_piatti_db = {}
+    menu_nomi_db = {}
     for m in db.get("menu_degustazione", []):
         if m.get("piatti_ids"):
             menu_piatti_db[m["id"]] = m["piatti_ids"]
-
-    # Fallback hardcoded se il DB non ha piatti_ids
-    MENU_PIATTI_FALLBACK = {
-        "esprit": ["animelle", "spaghettoni_martelli", "piccione",
-                    "carrello_formaggi", "nashi", "luna_rossa"],
-        "terroir": ["sedano_rapa", "risotto_cavolo_viola", "zuppa_del_bosco",
-                     "carrello_formaggi", "nashi", "topinambur"],
-    }
+        if m.get("nome"):
+            menu_nomi_db[m["id"]] = m["nome"]
 
     if tipo_menu in menu_piatti_db:
         piatti_ids = menu_piatti_db[tipo_menu]
-    elif tipo_menu in MENU_PIATTI_FALLBACK:
-        piatti_ids = MENU_PIATTI_FALLBACK[tipo_menu]
+    elif tipo_menu != "carta":
+        print(f"  [!] Menu '{tipo_menu}' non ha piatti_ids nel database — PDF senza piatti")
+        piatti_ids = []
     else:
-        # Carta: leggi dal campo piatti dell'Excel
+        # Carta: leggi dal campo piatti dell'Excel/UI
         piatti_ids = [p.strip() for p in str(piatti_csv).split(",") if p.strip()]
 
     print(f"\n{'='*60}")
@@ -766,8 +759,12 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
     separators = []  # [{x, y, w, h}]
 
     # ── Titolo menu (metà SX) — verde salvia 60% ──
-    title_raw = MENU_TITLES.get(tipo_menu, tipo_menu.capitalize())
-    title_text = title_raw.get(lingua, title_raw.get("it", "")) if isinstance(title_raw, dict) else title_raw
+    # Titolo dal DB (menu_degustazione.nome), fallback per "carta"
+    if tipo_menu == "carta":
+        title_raw = MENU_TITLE_CARTA
+        title_text = title_raw.get(lingua, title_raw["it"])
+    else:
+        title_text = menu_nomi_db.get(tipo_menu, tipo_menu.capitalize())
     menu_sz = MENU_TITLE_SIZE
     title_tw = pdfmetrics.stringWidth(title_text, "Bellevue", menu_sz)
     if title_tw > TITLE_MAX_W:
@@ -840,6 +837,8 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
             print(f"  [!] '{pid}' non trovato nel database")
             continue
         nome, desc = get_dish_name_desc(dish, lingua)
+        if mostra_prezzo and dish.get("prezzo_carta"):
+            desc = f"{desc}  —  {dish['prezzo_carta']} €" if desc else f"{dish['prezzo_carta']} €"
         dish_blocks.append(make_text_block(nome, desc, avail_width))
 
     N = len(dish_blocks)
