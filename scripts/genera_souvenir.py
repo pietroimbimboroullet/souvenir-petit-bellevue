@@ -708,29 +708,11 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
             c1.drawString(hx, TEAM_HEADER_Y, seg_text)
             hx += pdfmetrics.stringWidth(seg_text, seg_font, seg_sz)
 
-        # Ruoli localizzati per la copertina
-        role_labels = {
-            "chef di cucina": {"it": "lo Chef di cucina", "fr": "le Chef de cuisine", "en": "the Chef"},
-            "capo pasticcere": {"it": "il capo pasticcere", "fr": "le Chef pâtissier", "en": "the Pastry Chef"},
-            "maître": {"it": "il Maître d'hôtel", "fr": "le Maître d'hôtel", "en": "the Maître d'hôtel"},
-            "maitre": {"it": "il Maître d'hôtel", "fr": "le Maître d'hôtel", "en": "the Maître d'hôtel"},
-            "sommelier": {"it": "il Sommelier", "fr": "le Sommelier", "en": "the Sommelier"},
-            "fromager": {"it": "il Maître Fromager", "fr": "le Maître Fromager", "en": "the Maître Fromager"},
-        }
-
-        # Membri team — nome in regular, ruolo in italico
+        # Membri team — nome in regular, ruolo in italico (dal DB, senza trasformazioni)
         y = TEAM_FIRST_Y
         for member in team_members:
             nome = member.get("nome", "")
-            ruolo = member.get("ruolo", "")
-            ruolo_lower = ruolo.lower()
-            label = None
-            for key, labels in role_labels.items():
-                if key in ruolo_lower:
-                    label = labels.get(lingua, labels["it"])
-                    break
-            if label is None:
-                label = ruolo if ruolo else ""
+            label = member.get("ruolo", "")
 
             # Calcola larghezza totale per centrare
             nome_part = f"{nome}, " if label else nome
