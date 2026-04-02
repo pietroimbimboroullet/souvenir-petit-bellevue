@@ -178,16 +178,13 @@ details[data-testid="stExpander"]:hover {
 }
 [data-testid="stMetricLabel"] {
     color: #96816a !important;
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.7rem !important;
+    font-size: 0.75rem !important;
     text-transform: uppercase;
     letter-spacing: 0.1em;
 }
 [data-testid="stMetricValue"] {
     color: #4a6340 !important;
-    font-family: 'JetBrains Mono', monospace !important;
     font-weight: 700 !important;
-    font-size: 0.85rem !important;
 }
 
 /* ── Input fields: rounded, dashed border ── */
