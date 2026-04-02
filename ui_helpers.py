@@ -185,6 +185,7 @@ details[data-testid="stExpander"]:hover {
 [data-testid="stMetricValue"] {
     color: #4a6340 !important;
     font-weight: 700 !important;
+    font-size: 0.95rem !important;
 }
 
 /* ── Input fields: rounded, dashed border ── */
