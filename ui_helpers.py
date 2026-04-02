@@ -187,7 +187,7 @@ details[data-testid="stExpander"]:hover {
     color: #4a6340 !important;
     font-family: 'JetBrains Mono', monospace !important;
     font-weight: 700 !important;
-    font-size: 1.1rem !important;
+    font-size: 0.85rem !important;
 }
 
 /* ── Input fields: rounded, dashed border ── */
