@@ -198,6 +198,31 @@ CLR_DATE = (0.40, 0.26, 0.18)              # marrone/terra
 DATE_FONT = "Bellevue"
 DATE_SIZE = 14.5
 
+# Intro text (copertina, metà destra, tra ovale e separatore)
+INTRO_COVER_Y1 = 215                           # bottom del rettangolo bianco (sotto ultima riga)
+INTRO_COVER_Y2 = 270                           # top del rettangolo bianco (sopra prima riga)
+INTRO_FIRST_Y  = 258                           # baseline prima riga
+INTRO_LINE_H   = 12                            # interlinea
+INTRO_SZ       = 10.5                          # font size BernhardMod-It
+INTRO_MAX_W    = 350                           # larghezza max testo (prima di word-wrap)
+INTRO_TEXTS = {
+    "it": ("È il luogo in cui lo studio delle tradizioni si sposa con la ricerca "
+           "di nuove tecniche di cucina e di servizio. La cantina vini si inserisce "
+           "in questo contesto come un viaggio infinito tra il semplice e il prezioso, "
+           "tra l\u2019affermato e il nuovo arrivato, "
+           "tutto indissolubilmente collegato da una sola costante, la qualità."),
+    "fr": ("C\u2019est le lieu où l\u2019étude des traditions se marie avec la recherche "
+           "de nouvelles techniques de cuisine et de service. La cave à vins s\u2019inscrit "
+           "dans ce contexte comme un voyage infini entre le simple et le précieux, "
+           "entre l\u2019affirmé et le nouveau venu, "
+           "le tout indissolublement lié par une seule constante, la qualité."),
+    "en": ("This is the place where the study of traditions meets the pursuit "
+           "of new culinary and service techniques. The wine cellar fits into this "
+           "context as an endless journey between the simple and the precious, "
+           "between the established and the newcomer, "
+           "all inseparably linked by one constant, quality."),
+}
+
 # Team block (copertina, metà destra, sotto la descrizione)
 CLR_TEAM       = (126/255, 93/255, 86/255)   # RGB(126,93,86) bruno caldo
 TEAM_HEADER_SZ = 13                            # "Un'esperienza a cura di:" in Bellevue
@@ -671,6 +696,24 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
     c1.setFillColorRGB(*CLR_DATE)
     c1.setFont(DATE_FONT, DATE_SIZE)
     c1.drawCentredString(P1_DATE_X, DATE_BASELINE, date_text)
+
+    # ── Testo introduttivo tradotto (copertina, metà destra) ──
+    # Copre il testo italiano originale dello sfondo e lo ridisegna nella lingua corretta.
+    intro_cx = P1_DATE_X  # ~631pt — centro della metà destra
+    intro_text = INTRO_TEXTS.get(lingua, INTRO_TEXTS["it"])
+    # Rettangolo bianco per coprire il testo originale
+    c1.setFillColorRGB(1, 1, 1)
+    c1.rect(intro_cx - INTRO_MAX_W / 2 - 5, INTRO_COVER_Y1,
+            INTRO_MAX_W + 10, INTRO_COVER_Y2 - INTRO_COVER_Y1,
+            stroke=0, fill=1)
+    # Word-wrap e disegno centrato
+    c1.setFillColorRGB(*CLR_TEAM)
+    intro_lines = simpleSplit(intro_text, "BernhardMod-It", INTRO_SZ, INTRO_MAX_W)
+    y = INTRO_FIRST_Y
+    for line in intro_lines:
+        c1.setFont("BernhardMod-It", INTRO_SZ)
+        c1.drawCentredString(intro_cx, y, line)
+        y -= INTRO_LINE_H
 
     # ── Team block dinamico (copertina, metà destra) ──
     # Copre il blocco nomi originale nello sfondo e li rigenera dal DB.
