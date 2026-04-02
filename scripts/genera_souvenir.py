@@ -926,61 +926,42 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
     print(f"  Righe scrittura: {len(ruled_lines)} linee (8mm, "
           f"y={ruled_y_start:.0f}..{ruled_y_end:.0f})")
 
-    # ── Firme Chef, Maître e Sommelier — metà destra, sotto le righe ──
-    # Legge nomi dal DB (team), fallback ai valori di default
-    chef_name = "Niccolò de Riu"
-    maitre_name = "Martina Maddaleno"
-    somm_name = "Rino Billia"
-    for member in db.get("team", []):
-        ruolo = (member.get("ruolo") or "").lower()
-        if "chef" in ruolo and "pasticc" not in ruolo:
-            chef_name = member.get("nome", chef_name)
-        elif "maître" in ruolo or "maitre" in ruolo:
-            maitre_name = member.get("nome", maitre_name)
-        elif "sommelier" in ruolo:
-            somm_name = member.get("nome", somm_name)
-    chef_titles = {"it": "Lo Chef", "fr": "Le Chef", "en": "The Chef"}
-    maitre_titles = {"it": "Il Maître d'Hôtel", "fr": "Le Maître d'Hôtel", "en": "The Maître d'Hôtel"}
-    somm_titles = {"it": "Il Sommelier", "fr": "Le Sommelier", "en": "The Sommelier"}
-    chef_title = chef_titles.get(lingua, chef_titles["it"])
-    maitre_title = maitre_titles.get(lingua, maitre_titles["it"])
-    somm_title = somm_titles.get(lingua, somm_titles["it"])
+    # ── Firme team — metà destra, sotto le righe ──
+    # Legge DIRETTAMENTE dal DB, zero hardcoding, zero matching per ruolo.
+    # Ogni membro del team ha la sua firma: nome + ruolo dal DB.
+    team_members_sig = db.get("team", [])
+    n_sigs = len(team_members_sig)
 
-    sig_name_y = P2_DISHES_END_Y + 40
-    sig_title_y = sig_name_y - desc_lh
-    # Spazio utile: dalla piega (half) alla decorazione destra a quest'altezza
-    # Margini laterali minimi (10%) per massimizzare distanza tra firme
-    sig_right_limit = get_right_safe_margin(sig_name_y)
-    sig_left_limit = half + SAFETY
-    sig_span = sig_right_limit - sig_left_limit
-    sig_chef_cx = sig_left_limit + sig_span * 0.10
-    sig_maitre_cx = sig_left_limit + sig_span * 0.50
-    sig_somm_cx = sig_left_limit + sig_span * 0.90
+    if n_sigs > 0:
+        sig_name_y = P2_DISHES_END_Y + 40
+        sig_title_y = sig_name_y - desc_lh
+        sig_right_limit = get_right_safe_margin(sig_name_y)
+        sig_left_limit = half + SAFETY
+        sig_span = sig_right_limit - sig_left_limit
 
-    for text, cx, label in [
-        (chef_name, sig_chef_cx, "firma chef nome"),
-        (maitre_name, sig_maitre_cx, "firma maitre nome"),
-        (somm_name, sig_somm_cx, "firma somm nome"),
-    ]:
-        tw = pdfmetrics.stringWidth(text, "BernhardMod-It", SZ_DESC)
-        elements.append({
-            "text": text, "x": cx - tw / 2, "y": sig_name_y,
-            "font": "BernhardMod-It", "size": SZ_DESC,
-            "color": CLR_DESC, "alpha": 1.0, "tw": tw,
-            "side": "right", "label": label, "no_recenter": True,
-        })
-    for text, cx, label in [
-        (chef_title, sig_chef_cx, "firma chef titolo"),
-        (maitre_title, sig_maitre_cx, "firma maitre titolo"),
-        (somm_title, sig_somm_cx, "firma somm titolo"),
-    ]:
-        tw = pdfmetrics.stringWidth(text, "BernhardMod-It", SZ_DESC)
-        elements.append({
-            "text": text, "x": cx - tw / 2, "y": sig_title_y,
-            "font": "BernhardMod-It", "size": SZ_DESC,
-            "color": CLR_DESC, "alpha": 1.0, "tw": tw,
-            "side": "right", "label": label, "no_recenter": True,
-        })
+        for i, member in enumerate(team_members_sig):
+            nome = member.get("nome", "")
+            ruolo = member.get("ruolo", "")
+            if n_sigs == 1:
+                frac = 0.50
+            else:
+                frac = 0.10 + 0.80 * i / (n_sigs - 1)
+            cx = sig_left_limit + sig_span * frac
+
+            tw = pdfmetrics.stringWidth(nome, "BernhardMod-It", SZ_DESC)
+            elements.append({
+                "text": nome, "x": cx - tw / 2, "y": sig_name_y,
+                "font": "BernhardMod-It", "size": SZ_DESC,
+                "color": CLR_DESC, "alpha": 1.0, "tw": tw,
+                "side": "right", "label": f"firma {i} nome", "no_recenter": True,
+            })
+            tw = pdfmetrics.stringWidth(ruolo, "BernhardMod-It", SZ_DESC)
+            elements.append({
+                "text": ruolo, "x": cx - tw / 2, "y": sig_title_y,
+                "font": "BernhardMod-It", "size": SZ_DESC,
+                "color": CLR_DESC, "alpha": 1.0, "tw": tw,
+                "side": "right", "label": f"firma {i} titolo", "no_recenter": True,
+            })
 
     # ══════════════════════════════════════════════════════════════
     # CONTROLLO FINALE ASSOLUTO
