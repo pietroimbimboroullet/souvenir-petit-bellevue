@@ -738,7 +738,7 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
     # Numero tavolo e ospite — retro (metà sinistra), basso a sinistra, verticale
     if numero_ospite is not None:
         c1.saveState()
-        c1.translate(15, 20)
+        c1.translate(12, 35)
         c1.rotate(270)
         c1.setFont("BernhardMod-It", 8)
         c1.setFillColorRGB(*CLR_DESC)
@@ -926,28 +926,40 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
     print(f"  Righe scrittura: {len(ruled_lines)} linee (8mm, "
           f"y={ruled_y_start:.0f}..{ruled_y_end:.0f})")
 
-    # ── Firme Chef e Sommelier — metà destra, sotto le righe ──
+    # ── Firme Chef, Maître e Sommelier — metà destra, sotto le righe ──
     # Legge nomi dal DB (team), fallback ai valori di default
     chef_name = "Niccolò de Riu"
+    maitre_name = "Martina Maddaleno"
     somm_name = "Rino Billia"
     for member in db.get("team", []):
         ruolo = (member.get("ruolo") or "").lower()
         if "chef" in ruolo and "pasticc" not in ruolo:
             chef_name = member.get("nome", chef_name)
+        elif "maître" in ruolo or "maitre" in ruolo:
+            maitre_name = member.get("nome", maitre_name)
         elif "sommelier" in ruolo:
             somm_name = member.get("nome", somm_name)
     chef_titles = {"it": "Lo Chef", "fr": "Le Chef", "en": "The Chef"}
+    maitre_titles = {"it": "Il Maître d'Hôtel", "fr": "Le Maître d'Hôtel", "en": "The Maître d'Hôtel"}
     somm_titles = {"it": "Il Sommelier", "fr": "Le Sommelier", "en": "The Sommelier"}
     chef_title = chef_titles.get(lingua, chef_titles["it"])
+    maitre_title = maitre_titles.get(lingua, maitre_titles["it"])
     somm_title = somm_titles.get(lingua, somm_titles["it"])
 
     sig_name_y = P2_DISHES_END_Y + 40
     sig_title_y = sig_name_y - desc_lh
-    sig_chef_cx = half + half * 0.25
-    sig_somm_cx = half + half * 0.58
+    # Spazio utile: dalla piega (half) alla decorazione destra a quest'altezza
+    # Margini laterali minimi (10%) per massimizzare distanza tra firme
+    sig_right_limit = get_right_safe_margin(sig_name_y)
+    sig_left_limit = half + SAFETY
+    sig_span = sig_right_limit - sig_left_limit
+    sig_chef_cx = sig_left_limit + sig_span * 0.10
+    sig_maitre_cx = sig_left_limit + sig_span * 0.50
+    sig_somm_cx = sig_left_limit + sig_span * 0.90
 
     for text, cx, label in [
         (chef_name, sig_chef_cx, "firma chef nome"),
+        (maitre_name, sig_maitre_cx, "firma maitre nome"),
         (somm_name, sig_somm_cx, "firma somm nome"),
     ]:
         tw = pdfmetrics.stringWidth(text, "BernhardMod-It", SZ_DESC)
@@ -959,6 +971,7 @@ def genera_souvenir(data_val, tavolo, ospite, lingua, tipo_menu,
         })
     for text, cx, label in [
         (chef_title, sig_chef_cx, "firma chef titolo"),
+        (maitre_title, sig_maitre_cx, "firma maitre titolo"),
         (somm_title, sig_somm_cx, "firma somm titolo"),
     ]:
         tw = pdfmetrics.stringWidth(text, "BernhardMod-It", SZ_DESC)
